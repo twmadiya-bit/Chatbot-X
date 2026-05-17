@@ -1,0 +1,29 @@
+{
+  "name": "chatbot-x",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI-powered SaaS chatbot platform",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @chatbot-x/database generate",
+    "db:migrate": "pnpm --filter @chatbot-x/database migrate:dev",
+    "db:push": "pnpm --filter @chatbot-x/database db:push",
+    "db:seed": "pnpm --filter @chatbot-x/database seed",
+    "db:studio": "pnpm --filter @chatbot-x/database studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.3",
+    "typescript": "^5.8.3",
+    "@types/node": "^22.0.0",
+    "prettier": "^3.5.3",
+    "eslint": "^9.27.0"
+  }
+}

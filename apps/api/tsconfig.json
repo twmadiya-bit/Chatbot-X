@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./",
+    "paths": {
+      "@chatbot-x/database": ["../../packages/database/src/index.ts"],
+      "@chatbot-x/shared": ["../../packages/shared/src/index.ts"]
+    },
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictNullChecks": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

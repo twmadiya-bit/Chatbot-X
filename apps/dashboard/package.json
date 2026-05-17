@@ -1,0 +1,40 @@
+{
+  "name": "@chatbot-x/dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "15.3.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "next-auth": "^5.0.0-beta.28",
+    "@tanstack/react-query": "^5.75.5",
+    "axios": "^1.9.0",
+    "zod": "^3.25.28",
+    "react-hook-form": "^7.56.3",
+    "@hookform/resolvers": "^5.0.1",
+    "recharts": "^2.15.3",
+    "lucide-react": "^0.511.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.3.0",
+    "date-fns": "^4.1.0",
+    "@chatbot-x/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.3",
+    "tailwindcss": "^3.4.17",
+    "postcss": "^8.5.3",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.27.0",
+    "eslint-config-next": "15.3.2"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@chatbot-x/widget",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsx build.ts",
+    "dev": "tsx build.ts --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.4",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "@types/node": "^22.0.0"
+  }
+}

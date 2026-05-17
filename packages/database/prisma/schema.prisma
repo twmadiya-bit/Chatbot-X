@@ -1,0 +1,969 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector", schema: "public"), uuidOssp(map: "uuid-ossp")]
+}
+
+// ─── Platform ──────────────────────────────────────────────────────────────
+
+model PlatformSettings {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  setupFeeWidget    Decimal  @default(149.00) @db.Decimal(10, 2)
+  setupFeeWhatsapp  Decimal  @default(199.00) @db.Decimal(10, 2)
+  setupFeeBoth      Decimal  @default(299.00) @db.Decimal(10, 2)
+  defaultMarkupPct  Decimal  @default(40.00) @db.Decimal(5, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+// ─── Tenants ───────────────────────────────────────────────────────────────
+
+model Tenant {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String   @db.VarChar(255)
+  slug             String   @unique @db.VarChar(100)
+  email            String   @unique @db.VarChar(255)
+  phone            String?  @db.VarChar(50)
+  passwordHash     String   @db.VarChar(255)
+  role             TenantRole @default(CUSTOMER)
+  status           TenantStatus @default(ACTIVE)
+  stripeCustomerId String?  @unique @db.VarChar(100)
+  timezone         String   @default("UTC") @db.VarChar(100)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users                TenantUser[]
+  chatbots             Chatbot[]
+  chatbotSubscriptions ChatbotSubscription[]
+  setupFeePayments     SetupFeePayment[]
+  usageHourly          UsageHourly[]
+  usageMonthly         UsageMonthly[]
+  tenantIntegrations   TenantIntegration[]
+  endUserProfiles      EndUserProfile[]
+  auditLogs            AuditLog[]
+  notificationPrefs    NotificationPreference?
+  vectorStoreConfig    VectorStoreConfig[]
+
+  @@map("tenants")
+}
+
+model TenantUser {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String         @db.Uuid
+  name         String         @db.VarChar(255)
+  email        String         @db.VarChar(255)
+  passwordHash String         @db.VarChar(255)
+  role         TenantUserRole @default(MEMBER)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  auditLogs AuditLog[]
+
+  @@unique([tenantId, email])
+  @@map("tenant_users")
+}
+
+// ─── Industries & Templates ────────────────────────────────────────────────
+
+model Industry {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @db.VarChar(100)
+  slug        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  icon        String?  @db.VarChar(100)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  botTemplates     BotTemplate[]
+  industryPlans    IndustryPlan[]
+  industryFeatures IndustryFeature[]
+  chatbots         Chatbot[]
+
+  @@map("industries")
+}
+
+model BotTemplate {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  industryId    String   @db.Uuid
+  name          String   @db.VarChar(255)
+  description   String?  @db.Text
+  systemPrompt  String   @db.Text
+  defaultConfig Json     @default("{}")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  industry Industry  @relation(fields: [industryId], references: [id])
+  chatbots Chatbot[]
+
+  @@map("bot_templates")
+}
+
+// ─── Feature Catalog ───────────────────────────────────────────────────────
+
+model FeatureCategory {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @db.VarChar(100)
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  features Feature[]
+
+  @@map("feature_categories")
+}
+
+model Feature {
+  id                   String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId           String      @db.Uuid
+  key                  String      @unique @db.VarChar(100)
+  name                 String      @db.VarChar(255)
+  description          String?     @db.Text
+  featureType          FeatureType @default(CAPABILITY)
+  requiresIntegration  Boolean     @default(false)
+  isActive             Boolean     @default(true)
+  createdAt            DateTime    @default(now())
+
+  category         FeatureCategory   @relation(fields: [categoryId], references: [id])
+  industryFeatures IndustryFeature[]
+  planFeatures     PlanFeature[]
+
+  @@map("features")
+}
+
+model IndustryFeature {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  industryId String  @db.Uuid
+  featureId  String  @db.Uuid
+  isCore     Boolean @default(false)
+
+  industry Industry @relation(fields: [industryId], references: [id])
+  feature  Feature  @relation(fields: [featureId], references: [id])
+
+  @@unique([industryId, featureId])
+  @@map("industry_features")
+}
+
+// ─── Industry Plans (Per-Industry Tiered Products) ─────────────────────────
+
+model IndustryPlan {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  industryId           String   @db.Uuid
+  name                 String   @db.VarChar(255)
+  tier                 Int
+  stripePriceId        String?  @db.VarChar(100)
+  setupFeeUsd          Decimal  @db.Decimal(10, 2)
+  priceMonthlyUsd      Decimal  @db.Decimal(10, 2)
+  maxChatbots          Int      @default(1)
+  maxMonthlyMessages   Int      @default(1000)
+  maxKbDocs            Int      @default(10)
+  maxIntegrations      Int      @default(1)
+  includedAiCreditUsd  Decimal  @default(0) @db.Decimal(10, 2)
+  overageRatePerMsg    Decimal  @default(0.01) @db.Decimal(8, 4)
+  channels             Channel[]
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  industry             Industry              @relation(fields: [industryId], references: [id])
+  planFeatures         PlanFeature[]
+  chatbotSubscriptions ChatbotSubscription[]
+  chatbots             Chatbot[]
+
+  @@unique([industryId, tier])
+  @@map("industry_plans")
+}
+
+model PlanFeature {
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  industryPlanId String  @db.Uuid
+  featureId      String  @db.Uuid
+  isEnabled      Boolean @default(true)
+  config         Json    @default("{}")
+
+  industryPlan IndustryPlan @relation(fields: [industryPlanId], references: [id], onDelete: Cascade)
+  feature      Feature      @relation(fields: [featureId], references: [id])
+
+  @@unique([industryPlanId, featureId])
+  @@map("plan_features")
+}
+
+// ─── Chatbots ──────────────────────────────────────────────────────────────
+
+model Chatbot {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String       @db.Uuid
+  industryId     String?      @db.Uuid
+  industryPlanId String?      @db.Uuid
+  botTemplateId  String?      @db.Uuid
+  name           String       @db.VarChar(255)
+  description    String?      @db.Text
+  channel        Channel[]
+  status         BotStatus    @default(DRAFT)
+  aiModelId      String?      @db.Uuid
+  systemPrompt   String       @db.Text
+  maxTokens      Int          @default(1024)
+  temperature    Decimal      @default(0.7) @db.Decimal(3, 2)
+  config         Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  tenant               Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  industry             Industry?            @relation(fields: [industryId], references: [id])
+  industryPlan         IndustryPlan?        @relation(fields: [industryPlanId], references: [id])
+  botTemplate          BotTemplate?         @relation(fields: [botTemplateId], references: [id])
+  aiModel              AiModel?             @relation(fields: [aiModelId], references: [id])
+  branding             BotBranding?
+  handoffConfig        HandoffConfig?
+  whatsappConfig       WhatsappConfig?
+  widgetDeployment     WidgetDeployment?
+  conversations        Conversation[]
+  subscription         ChatbotSubscription?
+  setupFeePayment      SetupFeePayment?
+  knowledgeBase        KnowledgeBase?
+  tenantIntegrations   TenantIntegration[]
+  outboundCampaigns    OutboundCampaign[]
+  endUserProfiles      EndUserProfile[]
+
+  @@map("chatbots")
+}
+
+model BotBranding {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatbotId             String   @unique @db.Uuid
+  primaryColor          String   @default("#6366F1") @db.VarChar(7)
+  secondaryColor        String   @default("#FFFFFF") @db.VarChar(7)
+  backgroundColor       String   @default("#F9FAFB") @db.VarChar(7)
+  textColor             String   @default("#111827") @db.VarChar(7)
+  userBubbleColor       String   @default("#6366F1") @db.VarChar(7)
+  botBubbleColor        String   @default("#F3F4F6") @db.VarChar(7)
+  fontFamily            String   @default("Inter") @db.VarChar(100)
+  borderRadius          Int      @default(16)
+  logoUrl               String?  @db.VarChar(500)
+  avatarUrl             String?  @db.VarChar(500)
+  position              WidgetPosition @default(BOTTOM_RIGHT)
+  launcherText          String   @default("Chat with us") @db.VarChar(100)
+  headerTitle           String?  @db.VarChar(100)
+  headerSubtitle        String?  @db.VarChar(200)
+  welcomeScreenEnabled  Boolean  @default(true)
+  welcomeMessage        String   @default("Hello! How can I help you today?") @db.Text
+  placeholderText       String   @default("Type a message...") @db.VarChar(200)
+  widgetWidth           Int      @default(380)
+  widgetHeight          Int      @default(600)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  chatbot Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  @@map("bot_branding")
+}
+
+model HandoffConfig {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatbotId           String   @unique @db.Uuid
+  isEnabled           Boolean  @default(false)
+  handoffEmail        String?  @db.VarChar(255)
+  handoffWebhookUrl   String?  @db.VarChar(500)
+  triggerKeywords     String[]
+  maxUnansweredTurns  Int      @default(3)
+  sentimentThreshold  Decimal  @default(0.3) @db.Decimal(3, 2)
+  confidenceThreshold Decimal  @default(0.4) @db.Decimal(3, 2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  chatbot Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  @@map("handoff_configs")
+}
+
+// ─── WhatsApp ──────────────────────────────────────────────────────────────
+
+model WhatsappConfig {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatbotId             String            @unique @db.Uuid
+  provider              WhatsappProvider  @default(META)
+  phoneNumberId         String?           @db.VarChar(100)
+  wabaId                String?           @db.VarChar(100)
+  accessTokenEncrypted  String?           @db.Text
+  webhookVerifyToken    String?           @db.VarChar(255)
+  twilioAccountSid      String?           @db.VarChar(100)
+  twilioAuthTokenEnc    String?           @db.Text
+  twilioWhatsappNumber  String?           @db.VarChar(50)
+  isVerified            Boolean           @default(false)
+  verifiedAt            DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  chatbot Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  @@map("whatsapp_configs")
+}
+
+// ─── Widget Deployment ─────────────────────────────────────────────────────
+
+model WidgetDeployment {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatbotId      String   @unique @db.Uuid
+  apiKey         String   @unique @db.VarChar(64)
+  allowedDomains String[]
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  chatbot Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  @@map("widget_deployments")
+}
+
+// ─── AI Providers & Models ─────────────────────────────────────────────────
+
+model AiProvider {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key       String   @unique @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  models AiModel[]
+
+  @@map("ai_providers")
+}
+
+model AiModel {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  providerId            String   @db.Uuid
+  modelId               String   @unique @db.VarChar(100)
+  displayName           String   @db.VarChar(255)
+  capabilities          Json     @default("{}")
+  contextWindow         Int      @default(200000)
+  supportsVision        Boolean  @default(false)
+  supportsToolUse       Boolean  @default(false)
+  supportsStreaming      Boolean  @default(true)
+  tier                  ModelTier @default(STANDARD)
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+
+  provider     AiProvider    @relation(fields: [providerId], references: [id])
+  pricing      ModelPricing[]
+  chatbots     Chatbot[]
+  messages     Message[]
+
+  @@map("ai_models")
+}
+
+model ModelPricing {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  modelId                 String    @db.Uuid
+  inputCostPerMillion     Decimal   @db.Decimal(10, 4)
+  outputCostPerMillion    Decimal   @db.Decimal(10, 4)
+  effectiveFrom           DateTime
+  effectiveTo             DateTime?
+  createdAt               DateTime  @default(now())
+
+  model AiModel @relation(fields: [modelId], references: [id])
+
+  @@map("model_pricing")
+}
+
+// ─── Vector Store ──────────────────────────────────────────────────────────
+
+model VectorStoreConfig {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String?            @db.Uuid
+  provider         VectorStoreProvider @default(PGVECTOR)
+  configEncrypted  String?            @db.Text
+  isDefault        Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("vector_store_configs")
+}
+
+// ─── Conversations & Messages ──────────────────────────────────────────────
+
+model Conversation {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatbotId       String             @db.Uuid
+  channel         ConversationChannel
+  endUserId       String?            @db.VarChar(255)
+  endUserName     String?            @db.VarChar(255)
+  endUserPhone    String?            @db.VarChar(50)
+  endUserEmail    String?            @db.VarChar(255)
+  sessionId       String?            @db.VarChar(255)
+  status          ConversationStatus @default(OPEN)
+  sentiment       Decimal?           @db.Decimal(4, 3)
+  metadata        Json               @default("{}")
+  startedAt       DateTime           @default(now())
+  lastMessageAt   DateTime           @default(now())
+  resolvedAt      DateTime?
+  createdAt       DateTime           @default(now())
+
+  chatbot  Chatbot   @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([chatbotId])
+  @@index([endUserId])
+  @@index([createdAt])
+  @@map("conversations")
+}
+
+model Message {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId      String      @db.Uuid
+  role                MessageRole
+  content             String      @db.Text
+  mediaUrl            String?     @db.VarChar(500)
+  mediaType           String?     @db.VarChar(50)
+  inputTokens         Int?
+  outputTokens        Int?
+  latencyMs           Int?
+  aiModelId           String?     @db.Uuid
+  confidenceScore     Decimal?    @db.Decimal(4, 3)
+  sentimentScore      Decimal?    @db.Decimal(4, 3)
+  whatsappMessageId   String?     @db.VarChar(255)
+  isEscalated         Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+
+  conversation     Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  aiModel          AiModel?         @relation(fields: [aiModelId], references: [id])
+  toolInvocations  ToolInvocation[]
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+// ─── Subscriptions & Billing ───────────────────────────────────────────────
+
+model ChatbotSubscription {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatbotId            String             @unique @db.Uuid
+  tenantId             String             @db.Uuid
+  industryPlanId       String             @db.Uuid
+  stripeSubscriptionId String?            @unique @db.VarChar(100)
+  stripePaymentMethodId String?           @db.VarChar(100)
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  trialEnd             DateTime?
+  canceledAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  chatbot      Chatbot      @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  industryPlan IndustryPlan @relation(fields: [industryPlanId], references: [id])
+
+  @@map("chatbot_subscriptions")
+}
+
+model SetupFeePayment {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String            @db.Uuid
+  chatbotId              String            @unique @db.Uuid
+  stripePaymentIntentId  String?           @unique @db.VarChar(100)
+  amountUsd              Decimal           @db.Decimal(10, 2)
+  status                 PaymentStatus     @default(PENDING)
+  paidAt                 DateTime?
+  createdAt              DateTime          @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  chatbot Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+
+  @@map("setup_fee_payments")
+}
+
+// ─── Usage Metering ────────────────────────────────────────────────────────
+
+model UsageHourly {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String   @db.Uuid
+  chatbotId         String   @db.Uuid
+  hour              DateTime
+  inputTokens       BigInt   @default(0)
+  outputTokens      BigInt   @default(0)
+  totalTokens       BigInt   @default(0)
+  messageCount      Int      @default(0)
+  conversationCount Int      @default(0)
+  rawCostUsd        Decimal  @default(0) @db.Decimal(12, 6)
+  billedCostUsd     Decimal  @default(0) @db.Decimal(12, 6)
+  createdAt         DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, chatbotId, hour])
+  @@index([tenantId, hour])
+  @@map("usage_hourly")
+}
+
+model UsageMonthly {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String        @db.Uuid
+  billingPeriodStart  DateTime
+  billingPeriodEnd    DateTime
+  totalInputTokens    BigInt        @default(0)
+  totalOutputTokens   BigInt        @default(0)
+  totalTokens         BigInt        @default(0)
+  totalMessages       Int           @default(0)
+  totalConversations  Int           @default(0)
+  rawCostUsd          Decimal       @default(0) @db.Decimal(12, 4)
+  billedCostUsd       Decimal       @default(0) @db.Decimal(12, 4)
+  includedCreditUsd   Decimal       @default(0) @db.Decimal(12, 4)
+  overageUsd          Decimal       @default(0) @db.Decimal(12, 4)
+  stripeInvoiceId     String?       @db.VarChar(100)
+  status              BillingStatus @default(PENDING)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, billingPeriodStart])
+  @@map("usage_monthly")
+}
+
+// ─── Knowledge Base (RAG) ──────────────────────────────────────────────────
+
+model KnowledgeBase {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatbotId String   @unique @db.Uuid
+  name      String   @db.VarChar(255)
+  createdAt DateTime @default(now())
+
+  chatbot   Chatbot             @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  documents KnowledgeDocument[]
+
+  @@map("knowledge_bases")
+}
+
+model KnowledgeDocument {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  knowledgeBaseId String         @db.Uuid
+  title           String?        @db.VarChar(500)
+  sourceType      DocSourceType
+  sourceUrl       String?        @db.VarChar(1000)
+  fileUrl         String?        @db.VarChar(1000)
+  content         String?        @db.Text
+  status          DocStatus      @default(PROCESSING)
+  createdAt       DateTime       @default(now())
+
+  knowledgeBase KnowledgeBase   @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  chunks        DocumentChunk[]
+
+  @@index([knowledgeBaseId])
+  @@map("knowledge_documents")
+}
+
+model DocumentChunk {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @db.Uuid
+  chunkIndex Int
+  content    String   @db.Text
+  tokenCount Int?
+  createdAt  DateTime @default(now())
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_chunks")
+}
+
+// ─── Integrations ──────────────────────────────────────────────────────────
+
+model IntegrationProvider {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key          String              @unique @db.VarChar(100)
+  name         String              @db.VarChar(255)
+  category     IntegrationCategory
+  authType     IntegrationAuthType
+  capabilities Json                @default("[]")
+  logoUrl      String?             @db.VarChar(500)
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+
+  tenantIntegrations TenantIntegration[]
+
+  @@map("integration_providers")
+}
+
+model TenantIntegration {
+  id                       String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                 String            @db.Uuid
+  chatbotId                String?           @db.Uuid
+  integrationProviderId    String            @db.Uuid
+  status                   IntegrationStatus @default(DISCONNECTED)
+  credentialsEncrypted     String?           @db.Text
+  oauthAccessTokenEnc      String?           @db.Text
+  oauthRefreshTokenEnc     String?           @db.Text
+  tokenExpiresAt           DateTime?
+  config                   Json              @default("{}")
+  lastSyncAt               DateTime?
+  syncStatus               String?           @db.VarChar(50)
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chatbot             Chatbot?            @relation(fields: [chatbotId], references: [id])
+  integrationProvider IntegrationProvider @relation(fields: [integrationProviderId], references: [id])
+  syncJobs            IntegrationSyncJob[]
+  syncedProducts      SyncedProduct[]
+
+  @@map("tenant_integrations")
+}
+
+model IntegrationSyncJob {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantIntegrationId String    @db.Uuid
+  syncType            String    @db.VarChar(50)
+  status              String    @db.VarChar(50)
+  recordsSynced       Int       @default(0)
+  error               String?   @db.Text
+  startedAt           DateTime  @default(now())
+  completedAt         DateTime?
+
+  tenantIntegration TenantIntegration @relation(fields: [tenantIntegrationId], references: [id], onDelete: Cascade)
+
+  @@map("integration_sync_jobs")
+}
+
+model SyncedProduct {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantIntegrationId String   @db.Uuid
+  chatbotId           String   @db.Uuid
+  externalId          String   @db.VarChar(255)
+  sku                 String?  @db.VarChar(255)
+  name                String   @db.VarChar(500)
+  description         String?  @db.Text
+  price               Decimal? @db.Decimal(12, 4)
+  currency            String?  @db.VarChar(10)
+  stockQuantity       Int?
+  inStock             Boolean  @default(true)
+  attributes          Json     @default("{}")
+  imageUrl            String?  @db.VarChar(500)
+  productUrl          String?  @db.VarChar(500)
+  lastSyncedAt        DateTime @default(now())
+
+  tenantIntegration TenantIntegration @relation(fields: [tenantIntegrationId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantIntegrationId, externalId])
+  @@index([chatbotId])
+  @@map("synced_products")
+}
+
+// ─── Tool Invocations ──────────────────────────────────────────────────────
+
+model ToolInvocation {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId  String   @db.Uuid
+  toolKey    String   @db.VarChar(100)
+  input      Json     @default("{}")
+  output     Json?
+  latencyMs  Int?
+  status     String   @db.VarChar(50)
+  createdAt  DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("tool_invocations")
+}
+
+// ─── Memory & User Profiles ────────────────────────────────────────────────
+
+model EndUserProfile {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  chatbotId   String   @db.Uuid
+  endUserId   String   @db.VarChar(255)
+  name        String?  @db.VarChar(255)
+  phone       String?  @db.VarChar(50)
+  email       String?  @db.VarChar(255)
+  language    String?  @db.VarChar(10)
+  attributes  Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chatbot  Chatbot        @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  memories UserMemory[]
+
+  @@unique([chatbotId, endUserId])
+  @@map("end_user_profiles")
+}
+
+model UserMemory {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  endUserProfileId String  @db.Uuid
+  memoryType    MemoryType @default(SHORT_TERM)
+  topic         String     @db.VarChar(100)
+  content       String     @db.Text
+  expiresAt     DateTime?
+  createdAt     DateTime   @default(now())
+
+  endUserProfile EndUserProfile @relation(fields: [endUserProfileId], references: [id], onDelete: Cascade)
+
+  @@index([endUserProfileId])
+  @@map("user_memories")
+}
+
+// ─── Outbound Campaigns ────────────────────────────────────────────────────
+
+model OutboundCampaign {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chatbotId      String         @db.Uuid
+  name           String         @db.VarChar(255)
+  triggerType    TriggerType
+  triggerConfig  Json           @default("{}")
+  messageTemplate String        @db.Text
+  channel        Channel[]
+  status         CampaignStatus @default(DRAFT)
+  scheduledAt    DateTime?
+  lastRunAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  chatbot Chatbot @relation(fields: [chatbotId], references: [id], onDelete: Cascade)
+  sends   CampaignSend[]
+
+  @@map("outbound_campaigns")
+}
+
+model CampaignSend {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  campaignId   String     @db.Uuid
+  endUserId    String     @db.VarChar(255)
+  endUserPhone String?    @db.VarChar(50)
+  status       SendStatus @default(PENDING)
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  failedAt     DateTime?
+  error        String?    @db.Text
+  createdAt    DateTime   @default(now())
+
+  campaign OutboundCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@map("campaign_sends")
+}
+
+// ─── Audit & Notifications ─────────────────────────────────────────────────
+
+model AuditLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String?  @db.Uuid
+  actorUserId  String?  @db.Uuid
+  action       String   @db.VarChar(100)
+  resourceType String?  @db.VarChar(100)
+  resourceId   String?  @db.Uuid
+  metadata     Json     @default("{}")
+  ipAddress    String?  @db.VarChar(45)
+  createdAt    DateTime @default(now())
+
+  tenant    Tenant?     @relation(fields: [tenantId], references: [id])
+  actorUser TenantUser? @relation(fields: [actorUserId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+model NotificationPreference {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String   @unique @db.Uuid
+  usageAlertThresholdPct Int     @default(80)
+  billingEmails         Boolean  @default(true)
+  usageReportEmails     Boolean  @default(true)
+  handoffEmails         Boolean  @default(true)
+  sentimentAlertEmails  Boolean  @default(true)
+  updatedAt             DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+// ─── Enums ─────────────────────────────────────────────────────────────────
+
+enum TenantRole {
+  CUSTOMER
+  ADMIN
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum TenantUserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum Channel {
+  WIDGET
+  WHATSAPP
+  INSTAGRAM
+  MESSENGER
+  API
+}
+
+enum BotStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum WidgetPosition {
+  BOTTOM_RIGHT
+  BOTTOM_LEFT
+  TOP_RIGHT
+  TOP_LEFT
+}
+
+enum WhatsappProvider {
+  META
+  TWILIO
+}
+
+enum ModelTier {
+  BUDGET
+  STANDARD
+  PREMIUM
+}
+
+enum VectorStoreProvider {
+  PGVECTOR
+  PINECONE
+  QDRANT
+  WEAVIATE
+}
+
+enum ConversationChannel {
+  WIDGET
+  WHATSAPP
+  INSTAGRAM
+  MESSENGER
+  API
+}
+
+enum ConversationStatus {
+  OPEN
+  RESOLVED
+  ESCALATED
+  ABANDONED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  PAUSED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+enum BillingStatus {
+  PENDING
+  INVOICED
+  PAID
+  VOID
+}
+
+enum DocSourceType {
+  PDF
+  URL
+  TEXT
+  DOCX
+  FAQ
+}
+
+enum DocStatus {
+  PROCESSING
+  INDEXED
+  FAILED
+}
+
+enum IntegrationCategory {
+  INVENTORY
+  CALENDAR
+  CRM
+  POS
+  PAYMENT
+  CUSTOM
+  HEALTHCARE
+  REAL_ESTATE
+}
+
+enum IntegrationAuthType {
+  OAUTH2
+  API_KEY
+  WEBHOOK
+  BASIC
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  ERROR
+  DISCONNECTED
+}
+
+enum FeatureType {
+  CAPABILITY
+  INTEGRATION
+  QUOTA
+  CHANNEL
+}
+
+enum MemoryType {
+  SESSION
+  SHORT_TERM
+  LONG_TERM
+  PROFILE
+}
+
+enum TriggerType {
+  ABANDONED_CART
+  APPOINTMENT_REMINDER
+  ORDER_SHIPPED
+  BACK_IN_STOCK
+  REENGAGEMENT
+  PAYMENT_DUE
+  CUSTOM_WEBHOOK
+  SCHEDULED
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum SendStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  OPTED_OUT
+}

@@ -1,0 +1,77 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: chatbot-x-postgres
+    environment:
+      POSTGRES_USER: chatbotx
+      POSTGRES_PASSWORD: chatbotx_dev
+      POSTGRES_DB: chatbotx
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U chatbotx']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: chatbot-x-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    container_name: chatbot-x-api
+    ports:
+      - '3001:3001'
+    env_file:
+      - ../apps/api/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://chatbotx:chatbotx_dev@postgres:5432/chatbotx
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ../apps/api:/app/apps/api
+      - /app/node_modules
+    command: pnpm dev
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: apps/dashboard/Dockerfile
+    container_name: chatbot-x-dashboard
+    ports:
+      - '3000:3000'
+    env_file:
+      - ../apps/dashboard/.env.local
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:3001
+    volumes:
+      - ../apps/dashboard:/app/apps/dashboard
+      - /app/node_modules
+    command: pnpm dev
+
+volumes:
+  postgres_data:
+  redis_data:
