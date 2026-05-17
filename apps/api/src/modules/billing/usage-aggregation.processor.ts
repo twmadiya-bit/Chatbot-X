@@ -1,7 +1,6 @@
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { Cron } from '@nestjs/schedule';
 import { prisma } from '@chatbot-x/database';
 import { BillingService } from './billing.service';
 import { BillingStatus } from '@chatbot-x/database';
@@ -16,11 +15,36 @@ export interface UsageJobData {
 }
 
 @Processor('usage-aggregation')
-export class UsageAggregationProcessor extends WorkerHost {
+export class UsageAggregationProcessor
+  extends WorkerHost
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly logger = new Logger(UsageAggregationProcessor.name);
+  private aggregationInterval: NodeJS.Timeout | null = null;
 
   constructor(private readonly billingService: BillingService) {
     super();
+  }
+
+  onModuleInit(): void {
+    // Run aggregation at the top of every hour (checks every minute, fires when minute === 0)
+    const ONE_MINUTE_MS = 60 * 1000;
+    this.aggregationInterval = setInterval(() => {
+      const now = new Date();
+      if (now.getMinutes() === 0) {
+        this.aggregateHourlyToMonthly().catch((err: Error) => {
+          this.logger.error(`Hourly aggregation failed: ${err.message}`);
+        });
+      }
+    }, ONE_MINUTE_MS);
+    this.logger.log('Usage aggregation scheduler started (checks every minute, fires on the hour)');
+  }
+
+  onModuleDestroy(): void {
+    if (this.aggregationInterval) {
+      clearInterval(this.aggregationInterval);
+      this.aggregationInterval = null;
+    }
   }
 
   async process(job: Job<UsageJobData>): Promise<void> {
@@ -71,10 +95,11 @@ export class UsageAggregationProcessor extends WorkerHost {
       },
     });
 
-    this.logger.debug(`Upserted UsageHourly for tenant=${tenantId} chatbot=${chatbotId} hour=${hour.toISOString()}`);
+    this.logger.debug(
+      `Upserted UsageHourly for tenant=${tenantId} chatbot=${chatbotId} hour=${hour.toISOString()}`,
+    );
   }
 
-  @Cron('0 * * * *')
   async aggregateHourlyToMonthly(): Promise<void> {
     this.logger.log('Running hourly → monthly usage aggregation');
 
@@ -183,7 +208,9 @@ export class UsageAggregationProcessor extends WorkerHost {
         });
       }
 
-      this.logger.debug(`Aggregated usage for tenant ${tenantId}: ${totals.totalMessages} messages`);
+      this.logger.debug(
+        `Aggregated usage for tenant ${tenantId}: ${totals.totalMessages} messages`,
+      );
     }
 
     this.logger.log(`Aggregation complete for ${byTenant.size} tenants`);

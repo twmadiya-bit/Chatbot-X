@@ -2,6 +2,7 @@
   "name": "@chatbot-x/widget",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "tsx build.ts",
     "dev": "tsx build.ts --watch",

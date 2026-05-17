@@ -4,6 +4,7 @@ import { Queue } from 'bullmq';
 import { prisma } from '@chatbot-x/database';
 import type { OutboundCampaign } from '@chatbot-x/database';
 import type { CreateCampaignDto } from '@chatbot-x/shared';
+import type { Prisma } from '@chatbot-x/database';
 
 @Injectable()
 export class CampaignsService {
@@ -28,7 +29,7 @@ export class CampaignsService {
         chatbotId,
         name: dto.name,
         triggerType: dto.triggerType,
-        triggerConfig: dto.triggerConfig,
+        triggerConfig: dto.triggerConfig as Prisma.InputJsonValue,
         messageTemplate: dto.messageTemplate,
         channel: dto.channel,
         scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
