@@ -1,0 +1,22 @@
+name: Manage VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Shell command to run on VPS'
+        required: true
+        type: string
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: ${{ github.event.inputs.command }}
