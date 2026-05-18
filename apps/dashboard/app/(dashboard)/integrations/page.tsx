@@ -72,7 +72,7 @@ function ConnectModal({ provider, chatbots, onClose, onConnected }: {
     setSaving(true);
     setError('');
     try {
-      await api.post(`/chatbots/${chatbotId}/integrations`, {
+      await api.post(`/api/v1/chatbots/${chatbotId}/integrations`, {
         providerId: provider.id,
         credentials: { apiKey, storeDomain: storeDomain || undefined },
         config: {},
@@ -153,8 +153,8 @@ export default function IntegrationsPage() {
   const load = async () => {
     try {
       const [providersRes, chatbotsRes] = await Promise.all([
-        api.get('/integrations/providers'),
-        api.get('/chatbots'),
+        api.get('/api/v1/integrations/providers'),
+        api.get('/api/v1/chatbots'),
       ]);
       const bots = (chatbotsRes.data.data as Chatbot[]) ?? [];
       const provs = (providersRes.data as Provider[]) ?? [];
@@ -165,7 +165,7 @@ export default function IntegrationsPage() {
       await Promise.all(
         bots.map(async (bot) => {
           try {
-            const res = await api.get(`/chatbots/${bot.id}/integrations`);
+            const res = await api.get(`/api/v1/chatbots/${bot.id}/integrations`);
             const items = (res.data as ConnectedIntegration[]) ?? [];
             allConnected.push(...items);
           } catch { /* ignore */ }
@@ -183,7 +183,7 @@ export default function IntegrationsPage() {
 
   const disconnect = async (integration: ConnectedIntegration) => {
     try {
-      await api.delete(`/chatbots/${integration.chatbotId}/integrations/${integration.id}`);
+      await api.delete(`/api/v1/chatbots/${integration.chatbotId}/integrations/${integration.id}`);
       load();
     } catch { /* ignore */ }
   };

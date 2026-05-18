@@ -32,7 +32,7 @@ export class MemoryController {
     const [data, total] = await Promise.all([
       prisma.endUserProfile.findMany({
         where: { chatbotId },
-        orderBy: { lastSeenAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
         skip,
         take: Number(limit),
         include: {

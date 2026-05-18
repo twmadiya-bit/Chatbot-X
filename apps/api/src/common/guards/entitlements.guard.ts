@@ -2,8 +2,9 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
-  PaymentRequiredException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { prisma } from '@chatbot-x/database';
@@ -31,7 +32,7 @@ export class EntitlementsGuard implements CanActivate {
     });
 
     if (subscription && subscription.status !== 'ACTIVE' && subscription.status !== 'TRIALING') {
-      throw new PaymentRequiredException('An active subscription is required.');
+      throw new HttpException('An active subscription is required.', HttpStatus.PAYMENT_REQUIRED);
     }
 
     // Check feature is enabled in plan

@@ -82,10 +82,10 @@ export default function BillingPage() {
     const load = async () => {
       try {
         const [usageRes, historyRes, chatbotsRes, plansRes] = await Promise.all([
-          api.get('/billing/usage'),
-          api.get('/billing/history'),
-          api.get('/chatbots'),
-          api.get('/billing/plans').catch(() => ({ data: { data: [] } })),
+          api.get('/api/v1/billing/usage'),
+          api.get('/api/v1/billing/history'),
+          api.get('/api/v1/chatbots'),
+          api.get('/api/v1/billing/plans').catch(() => ({ data: { data: [] } })),
         ]);
         setUsage(usageRes.data.data as UsageData);
         setHistory((historyRes.data.data as InvoiceRow[]) ?? []);
@@ -99,7 +99,7 @@ export default function BillingPage() {
   const openPortal = async () => {
     setPortalLoading(true);
     try {
-      const res = await api.get('/billing/portal');
+      const res = await api.get('/api/v1/billing/portal');
       window.location.href = (res.data.data as { url: string }).url;
     } catch { setError('Could not open billing portal. Please ensure you have an active subscription.'); setPortalLoading(false); }
   };

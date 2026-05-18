@@ -299,7 +299,6 @@ export class ChatbotsService {
         confidenceThreshold: dto.confidenceThreshold ?? 0.4,
         maxUnansweredTurns: dto.maxUnansweredTurns ?? 3,
         triggerKeywords: dto.triggerKeywords ?? [],
-        escalationMessage: dto.escalationMessage ?? null,
       },
       update: {
         isEnabled: dto.isEnabled,
@@ -307,7 +306,6 @@ export class ChatbotsService {
         ...(dto.confidenceThreshold !== undefined && { confidenceThreshold: dto.confidenceThreshold }),
         ...(dto.maxUnansweredTurns !== undefined && { maxUnansweredTurns: dto.maxUnansweredTurns }),
         ...(dto.triggerKeywords !== undefined && { triggerKeywords: dto.triggerKeywords }),
-        ...(dto.escalationMessage !== undefined && { escalationMessage: dto.escalationMessage }),
       },
     });
   }
@@ -315,8 +313,8 @@ export class ChatbotsService {
   async listAiModels() {
     return prisma.aiModel.findMany({
       where: { isActive: true },
-      include: { provider: { select: { name: true, providerKey: true } } },
-      orderBy: [{ provider: { name: 'asc' } }, { name: 'asc' }],
+      include: { provider: { select: { name: true, key: true } } },
+      orderBy: [{ provider: { name: 'asc' } }, { displayName: 'asc' }],
     });
   }
 
@@ -360,15 +358,13 @@ export class ChatbotsService {
         phoneNumberId: dto.phoneNumberId,
         wabaId: dto.wabaId,
         accessTokenEncrypted: encrypted,
-        verifyToken: dto.verifyToken ?? null,
-        isActive: true,
+        webhookVerifyToken: dto.verifyToken ?? null,
       },
       update: {
         phoneNumberId: dto.phoneNumberId,
         wabaId: dto.wabaId,
         accessTokenEncrypted: encrypted,
-        ...(dto.verifyToken !== undefined && { verifyToken: dto.verifyToken }),
-        isActive: true,
+        ...(dto.verifyToken !== undefined && { webhookVerifyToken: dto.verifyToken }),
       },
     });
   }

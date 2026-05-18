@@ -50,7 +50,7 @@ export class WidgetController {
     @Body() body: { visitorId: string },
   ) {
     const deployment = await this.widgetService.validateApiKey(apiKey);
-    return this.widgetService.createConversation(deployment.chatbotId, body.visitorId);
+    return this.widgetService.getOrCreateConversation(deployment.chatbotId, body.visitorId);
   }
 
   @Post('message')

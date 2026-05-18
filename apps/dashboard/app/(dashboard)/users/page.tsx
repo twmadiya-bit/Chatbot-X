@@ -44,7 +44,7 @@ function MemoryDrawer({ chatbotId, endUserId, userName, onClose }: {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    api.get(`/chatbots/${chatbotId}/users/${encodeURIComponent(endUserId)}/memory`)
+    api.get(`/api/v1/chatbots/${chatbotId}/users/${encodeURIComponent(endUserId)}/memory`)
       .then(r => setMemories((r.data.memories as Memory[]) ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -53,7 +53,7 @@ function MemoryDrawer({ chatbotId, endUserId, userName, onClose }: {
   const clearMemory = async () => {
     setDeleting(true);
     try {
-      await api.delete(`/chatbots/${chatbotId}/users/${encodeURIComponent(endUserId)}/memory`);
+      await api.delete(`/api/v1/chatbots/${chatbotId}/users/${encodeURIComponent(endUserId)}/memory`);
       setMemories([]);
     } catch { /* ignore */ } finally { setDeleting(false); }
   };
@@ -123,7 +123,7 @@ export default function UsersPage() {
     if (!filterChatbot) { setUsers([]); setTotal(0); setLoading(false); return; }
     setLoading(true);
     try {
-      const res = await api.get(`/chatbots/${filterChatbot}/users?page=${page}&limit=${LIMIT}`);
+      const res = await api.get(`/api/v1/chatbots/${filterChatbot}/users?page=${page}&limit=${LIMIT}`);
       const d = res.data as { data: EndUser[]; total: number };
       setUsers(d.data ?? []);
       setTotal(d.total ?? 0);
@@ -131,7 +131,7 @@ export default function UsersPage() {
   }, [filterChatbot, page]);
 
   useEffect(() => {
-    api.get('/chatbots').then(r => {
+    api.get('/api/v1/chatbots').then(r => {
       const bots = (r.data.data as Chatbot[]) ?? [];
       setChatbots(bots);
       if (bots.length > 0) setFilterChatbot(bots[0].id);

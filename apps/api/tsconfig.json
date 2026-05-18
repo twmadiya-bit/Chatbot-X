@@ -4,7 +4,8 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "outDir": "./dist",
-    "rootDir": "./src",
+    "declaration": false,
+    "declarationMap": false,
     "baseUrl": "./",
     "paths": {
       "@chatbot-x/database": ["../../packages/database/src/index.ts"],

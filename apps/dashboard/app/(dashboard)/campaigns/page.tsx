@@ -67,7 +67,7 @@ function CreateCampaignModal({ chatbots, onClose, onCreated }: {
     setSaving(true);
     setError('');
     try {
-      await api.post(`/chatbots/${form.chatbotId}/campaigns`, {
+      await api.post(`/api/v1/chatbots/${form.chatbotId}/campaigns`, {
         name: form.name,
         triggerType: form.triggerType,
         channel: form.channel,
@@ -185,7 +185,7 @@ function CampaignRow({ campaign, chatbots, onRefresh }: { campaign: Campaign; ch
     setLoading(true);
     try {
       const chatbotId = (campaign as Campaign & { chatbotId?: string }).chatbotId;
-      await api.post(`/chatbots/${chatbotId}/campaigns/${campaign.id}/activate`);
+      await api.post(`/api/v1/chatbots/${chatbotId}/campaigns/${campaign.id}/activate`);
       onRefresh();
     } catch { /* ignore */ } finally { setLoading(false); }
   };
@@ -194,7 +194,7 @@ function CampaignRow({ campaign, chatbots, onRefresh }: { campaign: Campaign; ch
     setLoading(true);
     try {
       const chatbotId = (campaign as Campaign & { chatbotId?: string }).chatbotId;
-      await api.post(`/chatbots/${chatbotId}/campaigns/${campaign.id}/pause`);
+      await api.post(`/api/v1/chatbots/${chatbotId}/campaigns/${campaign.id}/pause`);
       onRefresh();
     } catch { /* ignore */ } finally { setLoading(false); }
   };
@@ -255,7 +255,7 @@ export default function CampaignsPage() {
 
   const load = async () => {
     try {
-      const [chatbotsRes] = await Promise.all([api.get('/chatbots')]);
+      const [chatbotsRes] = await Promise.all([api.get('/api/v1/chatbots')]);
       const bots = (chatbotsRes.data.data as Chatbot[]) ?? [];
       setChatbots(bots);
 
@@ -263,7 +263,7 @@ export default function CampaignsPage() {
       await Promise.all(
         bots.map(async (bot) => {
           try {
-            const res = await api.get(`/chatbots/${bot.id}/campaigns`);
+            const res = await api.get(`/api/v1/chatbots/${bot.id}/campaigns`);
             const items = (res.data as (Campaign & { chatbotId: string })[]) ?? [];
             items.forEach(c => { c.chatbotId = bot.id; });
             allCampaigns.push(...items);

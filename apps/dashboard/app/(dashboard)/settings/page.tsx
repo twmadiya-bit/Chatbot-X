@@ -42,8 +42,8 @@ export default function SettingsPage() {
     const load = async () => {
       try {
         const [profileRes, prefRes] = await Promise.all([
-          api.get('/tenants/me'),
-          api.get('/tenants/me/notification-preferences').catch(() => ({ data: { data: null } })),
+          api.get('/api/v1/tenants/me'),
+          api.get('/api/v1/tenants/me/notification-preferences').catch(() => ({ data: { data: null } })),
         ]);
         const p = profileRes.data.data as Record<string, unknown>;
         setProfile({ name: (p.name as string) ?? '', email: (p.email as string) ?? '', phone: (p.phone as string) ?? '', timezone: (p.timezone as string) ?? 'UTC' });
@@ -64,7 +64,7 @@ export default function SettingsPage() {
   const saveProfile = async () => {
     setSaving(true); setError(''); setSuccess('');
     try {
-      await api.patch('/tenants/me', { name: profile.name, phone: profile.phone, timezone: profile.timezone });
+      await api.patch('/api/v1/tenants/me', { name: profile.name, phone: profile.phone, timezone: profile.timezone });
       setSuccess('Profile saved successfully.');
     } catch { setError('Failed to save profile.'); } finally { setSaving(false); }
   };
@@ -72,7 +72,7 @@ export default function SettingsPage() {
   const requestExport = async () => {
     setExporting(true); setError(''); setSuccess('');
     try {
-      const res = await api.post('/tenants/me/export');
+      const res = await api.post('/api/v1/tenants/me/export');
       const data = res.data.data as object;
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -88,7 +88,7 @@ export default function SettingsPage() {
   const saveNotifications = async () => {
     setSaving(true); setError(''); setSuccess('');
     try {
-      await api.patch('/tenants/me/notification-preferences', notifs).catch(() => {});
+      await api.patch('/api/v1/tenants/me/notification-preferences', notifs).catch(() => {});
       setSuccess('Notification preferences saved.');
     } catch { setError('Failed to save.'); } finally { setSaving(false); }
   };

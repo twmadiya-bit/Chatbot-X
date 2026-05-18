@@ -20,7 +20,7 @@ export class AiGatewayService {
     private readonly safety: SafetyLayerService,
     private readonly config: ConfigService,
   ) {
-    this.providers = new Map([
+    this.providers = new Map<string, IAiProvider>([
       ['anthropic', this.anthropic],
       ['openai', this.openai],
       ['google', this.google],

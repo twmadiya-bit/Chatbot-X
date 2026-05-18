@@ -61,10 +61,10 @@ export default function AdminPage() {
     const load = async () => {
       try {
         const [statsRes, tenantsRes, modelsRes, settingsRes] = await Promise.all([
-          api.get('/admin/stats'),
-          api.get('/admin/tenants?limit=50'),
-          api.get('/admin/models'),
-          api.get('/admin/settings'),
+          api.get('/api/v1/admin/stats'),
+          api.get('/api/v1/admin/tenants?limit=50'),
+          api.get('/api/v1/admin/models'),
+          api.get('/api/v1/admin/settings'),
         ]);
         setStats(statsRes.data.data as Stats);
         setTenants((tenantsRes.data.data?.data as Tenant[]) ?? []);
@@ -86,7 +86,7 @@ export default function AdminPage() {
   const saveSettings = async () => {
     setSettingsSaving(true);
     try {
-      await api.patch('/admin/settings', settings);
+      await api.patch('/api/v1/admin/settings', settings);
     } catch { /* ignore */ } finally { setSettingsSaving(false); }
   };
 
@@ -94,7 +94,7 @@ export default function AdminPage() {
     const edit = pricingEdit[model.id];
     if (!edit) return;
     try {
-      await api.patch(`/admin/models/${model.modelId}/pricing`, {
+      await api.patch(`/api/v1/admin/models/${model.modelId}/pricing`, {
         inputCostPerMillion: parseFloat(edit.input),
         outputCostPerMillion: parseFloat(edit.output),
       });

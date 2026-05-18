@@ -53,7 +53,7 @@ function KnowledgeTab({ chatbotId }: { chatbotId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/chatbots/${chatbotId}/knowledge`);
+      const res = await api.get(`/api/v1/chatbots/${chatbotId}/knowledge`);
       setDocs((res.data as KnowledgeDoc[]) ?? []);
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [chatbotId]);
@@ -65,7 +65,7 @@ function KnowledgeTab({ chatbotId }: { chatbotId: string }) {
     if (form.sourceType === 'URL' && !form.sourceUrl.trim()) { setError('URL is required.'); return; }
     setAdding(true); setError('');
     try {
-      await api.post(`/chatbots/${chatbotId}/knowledge`, {
+      await api.post(`/api/v1/chatbots/${chatbotId}/knowledge`, {
         sourceType: form.sourceType,
         title: form.title || undefined,
         content: form.sourceType !== 'URL' ? form.content : undefined,
@@ -79,7 +79,7 @@ function KnowledgeTab({ chatbotId }: { chatbotId: string }) {
 
   const deleteDoc = async (docId: string) => {
     try {
-      await api.delete(`/chatbots/${chatbotId}/knowledge/${docId}`);
+      await api.delete(`/api/v1/chatbots/${chatbotId}/knowledge/${docId}`);
       setDocs(prev => prev.filter(d => d.id !== docId));
     } catch { /* ignore */ }
   };
@@ -219,7 +219,7 @@ function SettingsTab({ chatbotId, initialHandoff }: { chatbotId: string; initial
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    api.get('/chatbots/models')
+    api.get('/api/v1/chatbots/models')
       .then(r => setModels((r.data as AiModel[]) ?? []))
       .catch(() => {});
   }, []);
@@ -235,7 +235,7 @@ function SettingsTab({ chatbotId, initialHandoff }: { chatbotId: string; initial
   const save = async () => {
     setSaving(true); setSuccess('');
     try {
-      await api.patch(`/chatbots/${chatbotId}/handoff-config`, handoff);
+      await api.patch(`/api/v1/chatbots/${chatbotId}/handoff-config`, handoff);
       setSuccess('Settings saved.');
       setTimeout(() => setSuccess(''), 3000);
     } catch { /* ignore */ } finally { setSaving(false); }
@@ -360,7 +360,7 @@ function TestConsole({ chatbotId }: { chatbotId: string }) {
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setSending(true);
     try {
-      const res = await api.post(`/chatbots/${chatbotId}/test`, { message: text });
+      const res = await api.post(`/api/v1/chatbots/${chatbotId}/test`, { message: text });
       const d = res.data as { response: string; latencyMs: number };
       setMessages(prev => [...prev, { role: 'bot', content: d.response, latencyMs: d.latencyMs }]);
     } catch {
@@ -456,7 +456,7 @@ export default function ChatbotDetailPage() {
 
   const fetchChatbot = useCallback(async () => {
     try {
-      const res = await api.get(`/chatbots/${id}`);
+      const res = await api.get(`/api/v1/chatbots/${id}`);
       const data = res.data.data as Record<string, unknown>;
       setChatbot(data);
       setConfig({
@@ -484,7 +484,7 @@ export default function ChatbotDetailPage() {
 
   useEffect(() => {
     if (tab === 'conversations') {
-      api.get(`/analytics/conversations?chatbotId=${id}&page=${convoPage}&limit=20`)
+      api.get(`/api/v1/analytics/conversations?chatbotId=${id}&page=${convoPage}&limit=20`)
         .then(r => setConversations((r.data.data?.data as unknown[]) ?? []))
         .catch(() => {});
     }
@@ -493,7 +493,7 @@ export default function ChatbotDetailPage() {
   const saveConfig = async () => {
     setSaving(true); setError(''); setSuccess('');
     try {
-      await api.patch(`/chatbots/${id}`, config);
+      await api.patch(`/api/v1/chatbots/${id}`, config);
       setSuccess('Configuration saved.');
       fetchChatbot();
     } catch { setError('Failed to save.'); } finally { setSaving(false); }
@@ -502,7 +502,7 @@ export default function ChatbotDetailPage() {
   const saveBranding = async () => {
     setSaving(true); setError(''); setSuccess('');
     try {
-      await api.patch(`/chatbots/${id}/branding`, branding);
+      await api.patch(`/api/v1/chatbots/${id}/branding`, branding);
       setSuccess('Branding saved.');
     } catch { setError('Failed to save branding.'); } finally { setSaving(false); }
   };
@@ -514,7 +514,7 @@ export default function ChatbotDetailPage() {
     }
     setSaving(true); setError(''); setSuccess('');
     try {
-      await api.patch(`/chatbots/${id}/whatsapp-config`, waConfig);
+      await api.patch(`/api/v1/chatbots/${id}/whatsapp-config`, waConfig);
       setSuccess('WhatsApp configuration saved.');
     } catch { setError('Failed to save WhatsApp config.'); } finally { setSaving(false); }
   };
@@ -522,7 +522,7 @@ export default function ChatbotDetailPage() {
   const toggleStatus = async (action: 'activate' | 'pause') => {
     setSaving(true); setError('');
     try {
-      await api.post(`/chatbots/${id}/${action}`);
+      await api.post(`/api/v1/chatbots/${id}/${action}`);
       fetchChatbot();
     } catch (e: unknown) {
       setError((e as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Action failed.');

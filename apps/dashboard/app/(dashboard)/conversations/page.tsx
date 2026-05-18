@@ -75,7 +75,7 @@ function ConversationThread({ detail, onStatusChange }: { detail: ConvDetail; on
   const updateStatus = async (status: ConvStatus) => {
     setUpdating(true);
     try {
-      await api.patch(`/analytics/conversations/${detail.id}/status`, { status });
+      await api.patch(`/api/v1/analytics/conversations/${detail.id}/status`, { status });
       onStatusChange(status);
     } catch { /* ignore */ } finally { setUpdating(false); }
   };
@@ -155,7 +155,7 @@ export default function ConversationsPage() {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (filterStatus) params.set('status', filterStatus);
       if (filterChatbot) params.set('chatbotId', filterChatbot);
-      const res = await api.get(`/analytics/conversations?${params}`);
+      const res = await api.get(`/api/v1/analytics/conversations?${params}`);
       const payload = res.data.data as { data: Conversation[]; total: number };
       setConversations(payload.data ?? []);
       setTotal(payload.total ?? 0);
@@ -163,7 +163,7 @@ export default function ConversationsPage() {
   }, [page, filterStatus, filterChatbot]);
 
   useEffect(() => {
-    api.get('/chatbots').then(r => setChatbots((r.data.data as Chatbot[]) ?? [])).catch(() => {});
+    api.get('/api/v1/chatbots').then(r => setChatbots((r.data.data as Chatbot[]) ?? [])).catch(() => {});
   }, []);
 
   useEffect(() => { loadList(); }, [loadList]);
@@ -171,7 +171,7 @@ export default function ConversationsPage() {
   useEffect(() => {
     if (!selectedId) { setDetail(null); return; }
     setDetailLoading(true);
-    api.get(`/analytics/conversations/${selectedId}`)
+    api.get(`/api/v1/analytics/conversations/${selectedId}`)
       .then(r => setDetail(r.data.data as ConvDetail))
       .catch(() => setDetail(null))
       .finally(() => setDetailLoading(false));
