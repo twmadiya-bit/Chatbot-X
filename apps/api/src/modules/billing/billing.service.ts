@@ -11,6 +11,7 @@ import { Queue } from 'bullmq';
 import Stripe from 'stripe';
 import { prisma } from '@chatbot-x/database';
 import { PaymentStatus, BillingStatus, SubscriptionStatus } from '@chatbot-x/database';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface CalculatedCost {
   rawCostUsd: number;
@@ -25,6 +26,7 @@ export class BillingService {
 
   constructor(
     private readonly config: ConfigService,
+    private readonly notifications: NotificationsService,
     @InjectQueue('usage-aggregation') private readonly usageAggregationQueue: Queue,
   ) {
     this.stripe = new Stripe(this.config.get<string>('app.stripeSecretKey', ''), {
@@ -251,6 +253,17 @@ export class BillingService {
         },
       });
       this.logger.log(`Marked usage monthly ${existing.id} as paid for invoice ${invoice.id}`);
+    }
+
+    // Send billing email if tenant has it enabled
+    const [tenant, notifPrefs] = await Promise.all([
+      prisma.tenant.findUnique({ where: { id: subscription.tenantId }, select: { email: true } }),
+      prisma.notificationPreference.findUnique({ where: { tenantId: subscription.tenantId } }),
+    ]);
+    if (tenant && (notifPrefs?.billingEmails ?? true)) {
+      const period = `${periodStart.toLocaleString('en', { month: 'long', year: 'numeric' })}`;
+      const amount = invoice.amount_paid / 100;
+      this.notifications.sendBillingInvoice(tenant.email, amount, period).catch(() => {});
     }
   }
 

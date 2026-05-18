@@ -7,6 +7,7 @@ import { SafetyLayerService } from '../ai-gateway/safety/safety-layer.service';
 import { KnowledgeService } from '../knowledge/knowledge.service';
 import { MemoryService } from '../memory/memory.service';
 import { IntegrationsService } from '../integrations/integrations.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface ProcessMessageParams {
   tenantId: string;
@@ -38,6 +39,7 @@ export class ChatService {
     private readonly knowledge: KnowledgeService,
     private readonly memory: MemoryService,
     private readonly integrations: IntegrationsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async processMessage(params: ProcessMessageParams): Promise<ProcessMessageResult> {
@@ -150,6 +152,11 @@ export class ChatService {
     // 11. Queue memory extraction (fire-and-forget)
     this.memory.extractAndSaveMemories(conversationId, chatbotId, endUserId).catch(() => {});
 
+    // 12. Fire notification emails (fire-and-forget)
+    if (shouldEscalate || sentimentScore < -0.6) {
+      this.sendAlertNotifications(tenantId, chatbot.name, conversationId, endUserId, sentimentScore, shouldEscalate).catch(() => {});
+    }
+
     return {
       response: aiResponse.content,
       inputTokens: aiResponse.inputTokens,
@@ -201,6 +208,27 @@ export class ChatService {
     });
 
     this.memory.extractAndSaveMemories(conversationId, chatbotId, endUserId).catch(() => {});
+  }
+
+  private async sendAlertNotifications(
+    tenantId: string,
+    chatbotName: string,
+    conversationId: string,
+    endUserId: string,
+    sentimentScore: number,
+    shouldEscalate: boolean,
+  ): Promise<void> {
+    const [tenant, prefs] = await Promise.all([
+      prisma.tenant.findUnique({ where: { id: tenantId }, select: { email: true } }),
+      prisma.notificationPreference.findUnique({ where: { tenantId } }),
+    ]);
+    if (!tenant) return;
+
+    if (shouldEscalate && (prefs?.handoffEmails ?? true)) {
+      await this.notifications.sendHandoffAlert(tenant.email, chatbotName, conversationId, endUserId);
+    } else if (!shouldEscalate && sentimentScore < -0.6 && (prefs?.sentimentAlertEmails ?? true)) {
+      await this.notifications.sendSentimentAlert(tenant.email, chatbotName, conversationId, sentimentScore);
+    }
   }
 
   private async resolveTools(chatbotId: string): Promise<ToolDefinition[]> {

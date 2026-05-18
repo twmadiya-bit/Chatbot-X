@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { prisma } from '@chatbot-x/database';
-import { Tenant, UsageMonthly } from '@chatbot-x/database';
+import { Tenant, UsageMonthly, NotificationPreference } from '@chatbot-x/database';
 
 export interface UpdateProfileDto {
   name?: string;
@@ -50,6 +50,21 @@ export class TenantsService {
         },
       },
       orderBy: { billingPeriodStart: 'desc' },
+    });
+  }
+
+  async getNotificationPreferences(tenantId: string): Promise<NotificationPreference | null> {
+    return prisma.notificationPreference.findUnique({ where: { tenantId } });
+  }
+
+  async upsertNotificationPreferences(
+    tenantId: string,
+    dto: Partial<Pick<NotificationPreference, 'billingEmails' | 'usageReportEmails' | 'handoffEmails' | 'sentimentAlertEmails'>>,
+  ): Promise<NotificationPreference> {
+    return prisma.notificationPreference.upsert({
+      where: { tenantId },
+      create: { tenantId, ...dto },
+      update: dto,
     });
   }
 

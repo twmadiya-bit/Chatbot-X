@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { AiGatewayModule } from '../ai-gateway/ai-gateway.module';
+import { ChatModule } from '../chat/chat.module';
 import { WidgetService } from './widget.service';
 import { WidgetGateway } from './widget.gateway';
 import { WidgetController } from './widget.controller';
 
 @Module({
-  imports: [AiGatewayModule],
+  imports: [ChatModule],
   providers: [WidgetService, WidgetGateway],
   controllers: [WidgetController],
 })
