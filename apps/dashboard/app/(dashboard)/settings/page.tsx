@@ -34,6 +34,7 @@ export default function SettingsPage() {
   const [notifs, setNotifs] = useState({ billingEmails: true, usageReportEmails: true, handoffEmails: true, sentimentAlertEmails: true });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
@@ -66,6 +67,22 @@ export default function SettingsPage() {
       await api.patch('/tenants/me', { name: profile.name, phone: profile.phone, timezone: profile.timezone });
       setSuccess('Profile saved successfully.');
     } catch { setError('Failed to save profile.'); } finally { setSaving(false); }
+  };
+
+  const requestExport = async () => {
+    setExporting(true); setError(''); setSuccess('');
+    try {
+      const res = await api.post('/tenants/me/export');
+      const data = res.data.data as object;
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chatbot-x-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSuccess('Your data export has been downloaded.');
+    } catch { setError('Export failed. Please try again.'); } finally { setExporting(false); }
   };
 
   const saveNotifications = async () => {
@@ -154,7 +171,7 @@ export default function SettingsPage() {
             <div className="text-sm font-medium text-gray-900">Export Data</div>
             <div className="text-xs text-gray-500">Download all your conversations and data (GDPR)</div>
           </div>
-          <Button variant="secondary">Request Export</Button>
+          <Button variant="secondary" onClick={requestExport} disabled={exporting}>{exporting ? 'Exporting…' : 'Download Export'}</Button>
         </div>
         <div className="flex items-center justify-between py-3 border-t border-gray-100">
           <div>

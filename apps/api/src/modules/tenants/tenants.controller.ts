@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Patch,
+  Post,
   Body,
   UseGuards,
   HttpCode,
@@ -69,5 +70,13 @@ export class TenantsController {
   ): Promise<ApiResponse<NotificationPreference>> {
     const prefs = await this.tenantsService.upsertNotificationPreferences(tenantId, dto);
     return { success: true, data: prefs };
+  }
+
+  @Post('me/export')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Export all tenant data (GDPR)' })
+  async exportData(@CurrentTenant() tenantId: string): Promise<ApiResponse<object>> {
+    const data = await this.tenantsService.exportData(tenantId);
+    return { success: true, data };
   }
 }

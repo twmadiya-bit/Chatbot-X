@@ -7,7 +7,7 @@ import { Button } from '../../../../components/ui/Button';
 import { Badge } from '../../../../components/ui/Badge';
 import { Card } from '../../../../components/ui/Card';
 
-type Tab = 'overview' | 'configuration' | 'branding' | 'knowledge' | 'whatsapp' | 'conversations' | 'settings';
+type Tab = 'overview' | 'configuration' | 'branding' | 'knowledge' | 'whatsapp' | 'conversations' | 'settings' | 'test';
 
 const STATUS_COLOR: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
   ACTIVE: 'green', DRAFT: 'gray', PAUSED: 'yellow', ARCHIVED: 'red',
@@ -346,6 +346,93 @@ function SettingsTab({ chatbotId, initialHandoff }: { chatbotId: string; initial
   );
 }
 
+interface TestMsg { role: 'user' | 'bot'; content: string; latencyMs?: number }
+
+function TestConsole({ chatbotId }: { chatbotId: string }) {
+  const [messages, setMessages] = useState<TestMsg[]>([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || sending) return;
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    setSending(true);
+    try {
+      const res = await api.post(`/chatbots/${chatbotId}/test`, { message: text });
+      const d = res.data as { response: string; latencyMs: number };
+      setMessages(prev => [...prev, { role: 'bot', content: d.response, latencyMs: d.latencyMs }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'bot', content: 'Error: failed to get response from the AI.' }]);
+    } finally { setSending(false); }
+  };
+
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
+  };
+
+  return (
+    <div className="flex flex-col h-[600px] border border-gray-200 rounded-xl overflow-hidden">
+      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-gray-900 text-sm">Test Console</h3>
+          <p className="text-xs text-gray-500">Messages are not persisted. Tests use your chatbot's system prompt and AI model directly.</p>
+        </div>
+        {messages.length > 0 && (
+          <button onClick={() => setMessages([])} className="text-xs text-gray-400 hover:text-gray-600">Clear</button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white">
+        {messages.length === 0 && (
+          <div className="text-center text-gray-400 text-sm mt-16">
+            <div className="text-3xl mb-2">💬</div>
+            <p>Send a message to test your chatbot</p>
+          </div>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-xs lg:max-w-sm px-4 py-2.5 rounded-2xl text-sm ${
+              m.role === 'user'
+                ? 'bg-indigo-600 text-white rounded-tr-none'
+                : 'bg-gray-100 text-gray-900 rounded-tl-none'
+            }`}>
+              <p className="whitespace-pre-wrap">{m.content}</p>
+              {m.latencyMs !== undefined && (
+                <p className="text-xs mt-1 opacity-60">{m.latencyMs}ms</p>
+              )}
+            </div>
+          </div>
+        ))}
+        {sending && (
+          <div className="flex justify-start">
+            <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-2.5">
+              <div className="flex gap-1">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-gray-200 p-3 flex gap-2 bg-white">
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="Type a test message… (Enter to send)"
+          rows={2}
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+        />
+        <Button onClick={send} disabled={!input.trim() || sending} loading={sending} className="self-end">Send</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatbotDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -466,6 +553,7 @@ export default function ChatbotDetailPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Overview' },
+    { key: 'test', label: '▶ Test' },
     { key: 'configuration', label: 'Configuration' },
     { key: 'branding', label: 'Branding' },
     { key: 'knowledge', label: 'Knowledge' },
@@ -648,6 +736,9 @@ export default function ChatbotDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Tab: Test Console */}
+      {tab === 'test' && <TestConsole chatbotId={id} />}
 
       {/* Tab: Knowledge */}
       {tab === 'knowledge' && <KnowledgeTab chatbotId={id} />}

@@ -4,6 +4,7 @@ import type { CreateChatbotDto, UpdateBrandingDto } from '@chatbot-x/shared';
 import { NotFoundError, ForbiddenError } from '@chatbot-x/shared';
 import { customAlphabet } from 'nanoid';
 import { WIDGET_API_KEY_PREFIX } from '@chatbot-x/shared';
+import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
 
 interface PlanFeatureWithKey {
   feature: { key: string };
@@ -14,6 +15,8 @@ const nanoid = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw
 @Injectable()
 export class ChatbotsService {
   private readonly logger = new Logger(ChatbotsService.name);
+
+  constructor(private readonly aiGateway: AiGatewayService) {}
 
   async create(tenantId: string, dto: CreateChatbotDto) {
     const apiKey = `${WIDGET_API_KEY_PREFIX}${nanoid()}`;
@@ -315,6 +318,30 @@ export class ChatbotsService {
       include: { provider: { select: { name: true, providerKey: true } } },
       orderBy: [{ provider: { name: 'asc' } }, { name: 'asc' }],
     });
+  }
+
+  async testMessage(tenantId: string, chatbotId: string, message: string): Promise<{ response: string; inputTokens: number; outputTokens: number; latencyMs: number }> {
+    const chatbot = await this.findById(tenantId, chatbotId);
+    const model = (chatbot as { aiModel?: { modelId?: string } }).aiModel?.modelId ?? 'gpt-4o-mini';
+    const start = Date.now();
+
+    const result = await this.aiGateway.chat({
+      tenantId,
+      chatbotId,
+      conversationId: 'test',
+      messages: [{ role: 'user', content: message }],
+      systemPrompt: chatbot.systemPrompt ?? 'You are a helpful assistant.',
+      model,
+      maxTokens: chatbot.maxTokens ?? 500,
+      temperature: Number(chatbot.temperature) ?? 0.7,
+    });
+
+    return {
+      response: result.content,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      latencyMs: Date.now() - start,
+    };
   }
 
   async saveWhatsappConfig(

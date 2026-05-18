@@ -13,6 +13,8 @@ export const appConfig = registerAs('app', () => ({
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? '',
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
   resendApiKey: process.env.RESEND_API_KEY ?? '',
+  dashboardUrl: process.env.DASHBOARD_URL ?? 'http://localhost:3000',
+  apiUrl: process.env.API_URL ?? 'http://localhost:3001',
   s3Bucket: process.env.S3_BUCKET ?? '',
   s3Region: process.env.S3_REGION ?? 'us-east-1',
 }));

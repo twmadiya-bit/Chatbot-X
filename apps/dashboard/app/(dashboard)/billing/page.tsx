@@ -49,25 +49,48 @@ type InvoiceRow = {
 type SetupFee = { id: string; chatbot?: { name: string }; amountUsd: number; status: string };
 type Subscription = { id: string; chatbot?: { name: string }; industryPlan?: { name: string; priceMonthlyUsd: number }; status: string; currentPeriodEnd: string };
 
+type IndustryPlan = {
+  id: string;
+  name: string;
+  tier: 'BUDGET' | 'STANDARD' | 'PREMIUM';
+  priceMonthlyUsd: number;
+  setupFeeUsd: number;
+  features?: { feature: { key: string; name: string }; isEnabled: boolean }[];
+  industry?: { name: string };
+};
+
+const TIER_LABEL: Record<string, string> = { BUDGET: 'Starter', STANDARD: 'Professional', PREMIUM: 'Enterprise' };
+const TIER_COLOR: Record<string, string> = {
+  BUDGET: 'border-gray-200',
+  STANDARD: 'border-indigo-400 ring-1 ring-indigo-400',
+  PREMIUM: 'border-purple-400 ring-1 ring-purple-400',
+};
+const TIER_BADGE: Record<string, 'gray' | 'success' | 'warning'> = { BUDGET: 'gray', STANDARD: 'success', PREMIUM: 'warning' };
+
 export default function BillingPage() {
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [history, setHistory] = useState<InvoiceRow[]>([]);
   const [chatbots, setChatbots] = useState<Record<string, unknown>[]>([]);
+  const [plans, setPlans] = useState<IndustryPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPlans, setShowPlans] = useState(false);
+  const [industryFilter, setIndustryFilter] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [usageRes, historyRes, chatbotsRes] = await Promise.all([
+        const [usageRes, historyRes, chatbotsRes, plansRes] = await Promise.all([
           api.get('/billing/usage'),
           api.get('/billing/history'),
           api.get('/chatbots'),
+          api.get('/billing/plans').catch(() => ({ data: { data: [] } })),
         ]);
         setUsage(usageRes.data.data as UsageData);
         setHistory((historyRes.data.data as InvoiceRow[]) ?? []);
         setChatbots((chatbotsRes.data.data as Record<string, unknown>[]) ?? []);
+        setPlans((plansRes.data.data as IndustryPlan[]) ?? []);
       } catch { setError('Failed to load billing data.'); } finally { setLoading(false); }
     };
     load();
@@ -208,6 +231,101 @@ export default function BillingPage() {
           </table>
         </Card>
       )}
+
+      {/* Plans */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-900">Available Plans</h2>
+          <button
+            onClick={() => setShowPlans(p => !p)}
+            className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+          >
+            {showPlans ? 'Hide' : 'Browse plans'}
+          </button>
+        </div>
+
+        {showPlans && (
+          <div className="space-y-4">
+            {/* Industry filter */}
+            {plans.length > 0 && (() => {
+              const industries = [...new Set(plans.map(p => p.industry?.name).filter(Boolean))];
+              return industries.length > 1 ? (
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => setIndustryFilter('')}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${!industryFilter ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    All
+                  </button>
+                  {industries.map(ind => (
+                    <button
+                      key={ind}
+                      onClick={() => setIndustryFilter(ind!)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${industryFilter === ind ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                      {ind}
+                    </button>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+
+            {loading ? (
+              <div className="grid grid-cols-3 gap-4">
+                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-48" />)}
+              </div>
+            ) : plans.filter(p => !industryFilter || p.industry?.name === industryFilter).length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm">No plans available for this industry yet.</div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {plans
+                  .filter(p => !industryFilter || p.industry?.name === industryFilter)
+                  .map(plan => (
+                    <div
+                      key={plan.id}
+                      className={`border-2 rounded-xl p-5 flex flex-col transition-shadow hover:shadow-md ${TIER_COLOR[plan.tier]}`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <Badge variant={TIER_BADGE[plan.tier]}>{TIER_LABEL[plan.tier]}</Badge>
+                          <h3 className="font-semibold text-gray-900 mt-1.5 text-sm">{plan.name}</h3>
+                          {plan.industry?.name && <p className="text-xs text-gray-400">{plan.industry.name}</p>}
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="text-2xl font-bold text-gray-900">
+                          ${plan.priceMonthlyUsd}
+                          <span className="text-sm font-normal text-gray-500">/mo</span>
+                        </div>
+                        {plan.setupFeeUsd > 0 && (
+                          <div className="text-xs text-gray-400">${plan.setupFeeUsd} one-time setup</div>
+                        )}
+                      </div>
+
+                      {plan.features && plan.features.length > 0 && (
+                        <ul className="space-y-1 mb-4 flex-1">
+                          {plan.features.filter(f => f.isEnabled).slice(0, 5).map(f => (
+                            <li key={f.feature.key} className="flex items-center gap-2 text-xs text-gray-600">
+                              <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              {f.feature.name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <Button size="sm" variant={plan.tier === 'STANDARD' ? 'primary' : 'secondary'} className="mt-auto w-full">
+                        Select Plan
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* Invoice History */}
       <Card>

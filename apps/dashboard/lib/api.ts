@@ -180,6 +180,12 @@ export const authApi = {
     api.post<{ success: boolean; data: LoginResponse }>('/api/v1/auth/register', data),
 
   logout: () => api.post('/api/v1/auth/logout'),
+
+  requestPasswordReset: (email: string) =>
+    api.post('/api/v1/auth/request-password-reset', { email }),
+
+  resetPassword: (token: string, password: string) =>
+    api.post('/api/v1/auth/reset-password', { token, password }),
 };
 
 export const chatbotsApi = {

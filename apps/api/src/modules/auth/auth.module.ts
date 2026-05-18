@@ -10,11 +10,13 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { TenantsModule } from '../tenants/tenants.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     PassportModule,
     TenantsModule,
+    NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

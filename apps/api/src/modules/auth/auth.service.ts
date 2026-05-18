@@ -6,6 +6,7 @@ import { prisma } from '@chatbot-x/database';
 import { Tenant, TenantRole } from '@chatbot-x/database';
 import { RegisterTenantDto } from '@chatbot-x/shared';
 import { TenantsService } from '../tenants/tenants.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface AuthTokens {
   accessToken: string;
@@ -16,12 +17,18 @@ export interface LoginResult extends AuthTokens {
   tenant: Omit<Tenant, 'passwordHash'>;
 }
 
+interface TokenEntry { tenantId: string; email: string; expiresAt: Date }
+
 @Injectable()
 export class AuthService {
+  private readonly resetTokens = new Map<string, TokenEntry>();
+  private readonly verifyTokens = new Map<string, TokenEntry>();
+
   constructor(
     private readonly tenantsService: TenantsService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async validateTenant(email: string, password: string): Promise<Tenant | null> {
@@ -77,7 +84,58 @@ export class AuthService {
       },
     });
 
+    // Fire-and-forget welcome / verification email
+    void this.sendVerificationEmail(tenant.id, tenant.email);
+
     return this.login(tenant);
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    const tenant = await this.tenantsService.findByEmail(email);
+    if (!tenant) return; // don't reveal whether email exists
+
+    const token = crypto.randomUUID();
+    this.resetTokens.set(token, { tenantId: tenant.id, email: tenant.email, expiresAt: new Date(Date.now() + 3_600_000) });
+
+    const dashboardUrl = this.configService.get<string>('app.dashboardUrl') ?? 'http://localhost:3000';
+    await this.notifications.sendEmail({
+      to: tenant.email,
+      subject: 'Reset your Chatbot-X password',
+      html: `<h2>Password Reset</h2><p>Click the link below to reset your password. This link expires in 1 hour.</p><a href="${dashboardUrl}/reset-password?token=${token}" style="display:inline-block;padding:10px 20px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;">Reset Password</a><p style="color:#6b7280;font-size:12px;margin-top:16px;">If you didn't request this, you can safely ignore this email.</p>`,
+      text: `Reset your password: ${dashboardUrl}/reset-password?token=${token}`,
+    });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const entry = this.resetTokens.get(token);
+    if (!entry || entry.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.tenant.update({ where: { id: entry.tenantId }, data: { passwordHash } });
+    this.resetTokens.delete(token);
+  }
+
+  async sendVerificationEmail(tenantId: string, email: string): Promise<void> {
+    const token = crypto.randomUUID();
+    this.verifyTokens.set(token, { tenantId, email, expiresAt: new Date(Date.now() + 86_400_000) });
+
+    const apiUrl = this.configService.get<string>('app.apiUrl') ?? 'http://localhost:3001';
+    await this.notifications.sendEmail({
+      to: email,
+      subject: 'Verify your Chatbot-X email address',
+      html: `<h2>Welcome to Chatbot-X!</h2><p>Please verify your email address by clicking the link below:</p><a href="${apiUrl}/api/v1/auth/verify-email?token=${token}" style="display:inline-block;padding:10px 20px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;">Verify Email</a><p style="color:#6b7280;font-size:12px;margin-top:16px;">This link expires in 24 hours.</p>`,
+      text: `Verify your email: ${apiUrl}/api/v1/auth/verify-email?token=${token}`,
+    });
+  }
+
+  async verifyEmail(token: string): Promise<void> {
+    const entry = this.verifyTokens.get(token);
+    if (!entry || entry.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired verification token');
+    }
+    this.verifyTokens.delete(token);
   }
 
   async refreshTokens(tenantId: string, refreshToken: string): Promise<AuthTokens> {

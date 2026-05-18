@@ -68,6 +68,44 @@ export class TenantsService {
     });
   }
 
+  async exportData(tenantId: string): Promise<object> {
+    const [tenant, chatbots] = await Promise.all([
+      prisma.tenant.findUnique({ where: { id: tenantId } }),
+      prisma.chatbot.findMany({
+        where: { tenantId },
+        include: {
+          industry: true,
+          conversations: {
+            include: { messages: { orderBy: { createdAt: 'asc' }, take: 200 } },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+          },
+        },
+      }),
+    ]);
+
+    const { passwordHash: _ph, ...safeProfile } = tenant ?? {};
+
+    return {
+      exportedAt: new Date().toISOString(),
+      profile: safeProfile,
+      chatbots: chatbots.map(b => ({
+        id: b.id,
+        name: b.name,
+        channel: b.channel,
+        status: b.status,
+        createdAt: b.createdAt,
+        conversations: b.conversations.map(c => ({
+          id: c.id,
+          endUserId: c.endUserId,
+          status: c.status,
+          createdAt: c.createdAt,
+          messages: c.messages.map(m => ({ role: m.role, content: m.content, createdAt: m.createdAt })),
+        })),
+      })),
+    };
+  }
+
   async generateUniqueSlug(name: string): Promise<string> {
     const base = name
       .toLowerCase()

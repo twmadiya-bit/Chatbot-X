@@ -1,11 +1,14 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
+  Query,
   UseGuards,
   Request,
   HttpCode,
   HttpStatus,
+  Redirect,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService, LoginResult, AuthTokens } from './auth.service';
@@ -70,5 +73,43 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout (client should discard tokens)' })
   logout(): ApiResponse<null> {
     return { success: true, data: null, message: 'Logged out successfully' };
+  }
+
+  @Post('request-password-reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request a password reset email' })
+  async requestPasswordReset(@Body() body: { email: string }): Promise<ApiResponse<null>> {
+    await this.authService.requestPasswordReset(body.email);
+    return { success: true, data: null, message: 'If this email is registered, a reset link has been sent.' };
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password using a reset token' })
+  async resetPassword(@Body() body: { token: string; password: string }): Promise<ApiResponse<null>> {
+    await this.authService.resetPassword(body.token, body.password);
+    return { success: true, data: null, message: 'Password reset successfully.' };
+  }
+
+  @Get('verify-email')
+  @Redirect()
+  @ApiOperation({ summary: 'Verify email address (link from email)' })
+  async verifyEmailGet(@Query('token') token: string) {
+    try {
+      await this.authService.verifyEmail(token);
+      const dashboardUrl = process.env.DASHBOARD_URL ?? 'http://localhost:3000';
+      return { url: `${dashboardUrl}/login?verified=1` };
+    } catch {
+      const dashboardUrl = process.env.DASHBOARD_URL ?? 'http://localhost:3000';
+      return { url: `${dashboardUrl}/login?verified=0` };
+    }
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify email address using a verification token' })
+  async verifyEmail(@Body() body: { token: string }): Promise<ApiResponse<null>> {
+    await this.authService.verifyEmail(body.token);
+    return { success: true, data: null, message: 'Email verified successfully.' };
   }
 }

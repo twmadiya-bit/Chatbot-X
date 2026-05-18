@@ -139,6 +139,17 @@ export class ChatbotsController {
     return this.chatbotsService.saveWhatsappConfig(tenantId, id, dto);
   }
 
+  @Post(':id/test')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Send a test message to a chatbot (no conversation persisted)' })
+  testMessage(
+    @CurrentTenant() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { message: string },
+  ) {
+    return this.chatbotsService.testMessage(tenantId, id, body.message);
+  }
+
   @Patch(':id/handoff-config')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update handoff / escalation configuration' })
