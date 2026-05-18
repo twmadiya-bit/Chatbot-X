@@ -5,13 +5,13 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { join } from 'path';
 import { AppModule } from './app.module';
 
-// Prisma returns some aggregate fields as BigInt; make JSON.stringify handle them
-(BigInt.prototype as unknown as { toJSON: () => number }).toJSON = function () {
-  return Number(this);
-};
-
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Prisma returns token counts as BigInt — convert to Number for JSON serialization
+  app.getHttpAdapter().getInstance().set('json replacer', (_key: string, value: unknown) =>
+    typeof value === 'bigint' ? Number(value) : value,
+  );
 
   app.setGlobalPrefix('api/v1');
 
