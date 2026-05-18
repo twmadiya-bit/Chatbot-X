@@ -326,6 +326,31 @@ export class BillingService {
     return records;
   }
 
+  async createPortalSession(tenantId: string): Promise<{ url: string }> {
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant?.stripeCustomerId) {
+      throw new BadRequestException('No billing account found. Please subscribe first.');
+    }
+
+    const session = await this.stripe.billingPortal.sessions.create({
+      customer: tenant.stripeCustomerId,
+      return_url: `${this.config.get('app.dashboardUrl', 'http://localhost:3000')}/billing`,
+    });
+
+    return { url: session.url };
+  }
+
+  async getAllPlans(): Promise<object[]> {
+    return prisma.industryPlan.findMany({
+      where: { isActive: true },
+      include: {
+        industry: { select: { id: true, name: true, slug: true, icon: true } },
+        planFeatures: { include: { feature: { select: { key: true, name: true, featureType: true } } } },
+      },
+      orderBy: [{ industryId: 'asc' }, { tier: 'asc' }],
+    });
+  }
+
   async trackUsage(
     tenantId: string,
     chatbotId: string,

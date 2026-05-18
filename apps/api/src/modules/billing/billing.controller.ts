@@ -84,4 +84,22 @@ export class BillingController {
     const data = await this.billingService.getBillingHistory(tenantId);
     return { success: true, data };
   }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('portal')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Create Stripe Billing Portal session URL' })
+  async createPortalSession(@CurrentTenant() tenantId: string): Promise<ApiResponse<{ url: string }>> {
+    const data = await this.billingService.createPortalSession(tenantId);
+    return { success: true, data };
+  }
+
+  @Get('plans')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get all industry plans (public)' })
+  async getAllPlans(): Promise<ApiResponse<object[]>> {
+    const data = await this.billingService.getAllPlans();
+    return { success: true, data };
+  }
 }

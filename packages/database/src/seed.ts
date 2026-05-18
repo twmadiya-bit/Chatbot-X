@@ -142,6 +142,103 @@ async function main() {
     });
   }
 
+  // Industry Plans — per-industry tiered products
+  const ecommerce = await prisma.industry.findUnique({ where: { slug: 'ecommerce' } });
+  const healthcare = await prisma.industry.findUnique({ where: { slug: 'healthcare' } });
+  const realEstate = await prisma.industry.findUnique({ where: { slug: 'real-estate' } });
+  const restaurant = await prisma.industry.findUnique({ where: { slug: 'restaurant' } });
+  const education = await prisma.industry.findUnique({ where: { slug: 'education' } });
+  const finance = await prisma.industry.findUnique({ where: { slug: 'finance' } });
+
+  if (ecommerce) {
+    const plans = [
+      { name: 'Retail Starter', tier: 1, setupFeeUsd: 129, priceMonthlyUsd: 39, maxMonthlyMessages: 1000, includedAiCreditUsd: 8, maxIntegrations: 1, channels: ['WIDGET'] as ('WIDGET')[] },
+      { name: 'Retail Pro', tier: 2, setupFeeUsd: 249, priceMonthlyUsd: 99, maxMonthlyMessages: 8000, includedAiCreditUsd: 30, maxIntegrations: 3, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+      { name: 'Retail Enterprise', tier: 3, setupFeeUsd: 499, priceMonthlyUsd: 249, maxMonthlyMessages: 30000, includedAiCreditUsd: 100, maxIntegrations: 10, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+    ];
+    for (const plan of plans) {
+      const existing = await prisma.industryPlan.findFirst({ where: { industryId: ecommerce.id, tier: plan.tier } });
+      if (!existing) {
+        await prisma.industryPlan.create({ data: { ...plan, industryId: ecommerce.id, maxChatbots: plan.tier, maxKbDocs: plan.tier * 10, overageRatePerMsg: 0.01 } });
+      }
+    }
+  }
+
+  if (healthcare) {
+    const plans = [
+      { name: 'Clinic Starter', tier: 1, setupFeeUsd: 149, priceMonthlyUsd: 49, maxMonthlyMessages: 500, includedAiCreditUsd: 10, maxIntegrations: 1, channels: ['WIDGET'] as ('WIDGET')[] },
+      { name: 'Clinic Pro', tier: 2, setupFeeUsd: 299, priceMonthlyUsd: 119, maxMonthlyMessages: 5000, includedAiCreditUsd: 40, maxIntegrations: 3, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+      { name: 'Clinic Enterprise', tier: 3, setupFeeUsd: 599, priceMonthlyUsd: 299, maxMonthlyMessages: 20000, includedAiCreditUsd: 120, maxIntegrations: 10, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+    ];
+    for (const plan of plans) {
+      const existing = await prisma.industryPlan.findFirst({ where: { industryId: healthcare.id, tier: plan.tier } });
+      if (!existing) {
+        await prisma.industryPlan.create({ data: { ...plan, industryId: healthcare.id, maxChatbots: plan.tier, maxKbDocs: plan.tier * 15, overageRatePerMsg: 0.012 } });
+      }
+    }
+  }
+
+  if (realEstate) {
+    const plans = [
+      { name: 'Agent Starter', tier: 1, setupFeeUsd: 99, priceMonthlyUsd: 29, maxMonthlyMessages: 500, includedAiCreditUsd: 6, maxIntegrations: 1, channels: ['WIDGET'] as ('WIDGET')[] },
+      { name: 'Agent Pro', tier: 2, setupFeeUsd: 199, priceMonthlyUsd: 79, maxMonthlyMessages: 4000, includedAiCreditUsd: 25, maxIntegrations: 3, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+      { name: 'Agency Enterprise', tier: 3, setupFeeUsd: 399, priceMonthlyUsd: 199, maxMonthlyMessages: 15000, includedAiCreditUsd: 80, maxIntegrations: 10, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+    ];
+    for (const plan of plans) {
+      const existing = await prisma.industryPlan.findFirst({ where: { industryId: realEstate.id, tier: plan.tier } });
+      if (!existing) {
+        await prisma.industryPlan.create({ data: { ...plan, industryId: realEstate.id, maxChatbots: plan.tier, maxKbDocs: plan.tier * 10, overageRatePerMsg: 0.01 } });
+      }
+    }
+  }
+
+  if (restaurant) {
+    const plans = [
+      { name: 'Restaurant Starter', tier: 1, setupFeeUsd: 99, priceMonthlyUsd: 29, maxMonthlyMessages: 1000, includedAiCreditUsd: 8, maxIntegrations: 1, channels: ['WIDGET'] as ('WIDGET')[] },
+      { name: 'Restaurant Pro', tier: 2, setupFeeUsd: 199, priceMonthlyUsd: 69, maxMonthlyMessages: 6000, includedAiCreditUsd: 22, maxIntegrations: 2, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+      { name: 'Restaurant Chain', tier: 3, setupFeeUsd: 399, priceMonthlyUsd: 179, maxMonthlyMessages: 25000, includedAiCreditUsd: 80, maxIntegrations: 8, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+    ];
+    for (const plan of plans) {
+      const existing = await prisma.industryPlan.findFirst({ where: { industryId: restaurant.id, tier: plan.tier } });
+      if (!existing) {
+        await prisma.industryPlan.create({ data: { ...plan, industryId: restaurant.id, maxChatbots: plan.tier, maxKbDocs: plan.tier * 5, overageRatePerMsg: 0.009 } });
+      }
+    }
+  }
+
+  if (finance) {
+    const plans = [
+      { name: 'Finance Starter', tier: 1, setupFeeUsd: 199, priceMonthlyUsd: 59, maxMonthlyMessages: 500, includedAiCreditUsd: 12, maxIntegrations: 1, channels: ['WIDGET'] as ('WIDGET')[] },
+      { name: 'Finance Pro', tier: 2, setupFeeUsd: 399, priceMonthlyUsd: 149, maxMonthlyMessages: 5000, includedAiCreditUsd: 50, maxIntegrations: 3, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+      { name: 'Finance Enterprise', tier: 3, setupFeeUsd: 799, priceMonthlyUsd: 399, maxMonthlyMessages: 20000, includedAiCreditUsd: 150, maxIntegrations: 10, channels: ['WIDGET', 'WHATSAPP'] as ('WIDGET' | 'WHATSAPP')[] },
+    ];
+    for (const plan of plans) {
+      const existing = await prisma.industryPlan.findFirst({ where: { industryId: finance.id, tier: plan.tier } });
+      if (!existing) {
+        await prisma.industryPlan.create({ data: { ...plan, industryId: finance.id, maxChatbots: plan.tier, maxKbDocs: plan.tier * 20, overageRatePerMsg: 0.015 } });
+      }
+    }
+  }
+
+  // Bot Templates
+  const templates = [
+    { slug: 'ecommerce', name: 'E-Commerce Assistant', systemPrompt: 'You are a helpful shopping assistant for an online store. Help customers find products, check availability, track orders, and answer questions about shipping and returns. Always be friendly, concise, and focus on helping customers complete their purchase. If asked about something outside shopping and products, politely redirect.' },
+    { slug: 'healthcare', name: 'Healthcare Assistant', systemPrompt: 'You are a helpful healthcare assistant for a medical clinic. Help patients with appointment booking, clinic information, general health FAQs, and directing them to appropriate services. Always include a disclaimer that you are not a medical professional and that urgent medical concerns should contact emergency services. Be empathetic and professional.' },
+    { slug: 'real-estate', name: 'Real Estate Assistant', systemPrompt: 'You are a knowledgeable real estate assistant. Help clients find properties matching their criteria, schedule viewings, understand the buying/renting process, and answer questions about listings. Collect lead information naturally during conversation and offer to connect them with an agent for detailed inquiries.' },
+    { slug: 'restaurant', name: 'Restaurant Assistant', systemPrompt: 'You are a friendly restaurant assistant. Help customers with menu questions, dietary and allergen information, table reservations, and ordering information. Be warm and enthusiastic about the food. Highlight daily specials and promotions when relevant.' },
+    { slug: 'finance', name: 'Financial Services Assistant', systemPrompt: 'You are a professional financial services assistant. Help clients with account inquiries, product information, loan and investment questions, and appointment scheduling. Always remind clients that specific financial advice should come from a qualified advisor. Maintain strict confidentiality and professionalism at all times.' },
+  ];
+
+  for (const t of templates) {
+    const industry = await prisma.industry.findUnique({ where: { slug: t.slug } });
+    if (industry) {
+      const existingTemplate = await prisma.botTemplate.findFirst({ where: { industryId: industry.id, name: t.name } });
+      if (!existingTemplate) {
+        await prisma.botTemplate.create({ data: { industryId: industry.id, name: t.name, systemPrompt: t.systemPrompt, defaultConfig: {}, isActive: true } });
+      }
+    }
+  }
+
   console.log('Seeding complete.');
 }
 
