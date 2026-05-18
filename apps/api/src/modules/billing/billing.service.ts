@@ -22,16 +22,27 @@ export interface CalculatedCost {
 @Injectable()
 export class BillingService {
   private readonly logger = new Logger(BillingService.name);
-  private readonly stripe: Stripe;
+  private readonly stripe: Stripe | null;
 
   constructor(
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
     @InjectQueue('usage-aggregation') private readonly usageAggregationQueue: Queue,
   ) {
-    this.stripe = new Stripe(this.config.get<string>('app.stripeSecretKey', ''), {
-      apiVersion: '2025-02-24.acacia',
-    });
+    const stripeKey = this.config.get<string>('app.stripeSecretKey', '');
+    if (stripeKey) {
+      this.stripe = new Stripe(stripeKey, { apiVersion: '2025-02-24.acacia' });
+    } else {
+      this.stripe = null;
+      this.logger.warn('STRIPE_SECRET_KEY not set — billing features disabled');
+    }
+  }
+
+  private get stripeClient(): Stripe {
+    if (!this.stripe) {
+      throw new InternalServerErrorException('Stripe is not configured on this server');
+    }
+    return this.stripe;
   }
 
   async createSetupFeePaymentIntent(
@@ -61,7 +72,7 @@ export class BillingService {
 
     const amountCents = Math.round(Number(chatbot.industryPlan.setupFeeUsd) * 100);
 
-    const paymentIntent = await this.stripe.paymentIntents.create({
+    const paymentIntent = await this.stripeClient.paymentIntents.create({
       amount: amountCents,
       currency: 'usd',
       metadata: { tenantId, chatbotId },
@@ -118,7 +129,7 @@ export class BillingService {
 
     let stripeCustomerId = tenant.stripeCustomerId;
     if (!stripeCustomerId) {
-      const customer = await this.stripe.customers.create({
+      const customer = await this.stripeClient.customers.create({
         email: tenant.email,
         name: tenant.name,
         metadata: { tenantId },
@@ -131,7 +142,7 @@ export class BillingService {
       this.logger.log(`Created Stripe customer ${stripeCustomerId} for tenant ${tenantId}`);
     }
 
-    const stripeSubscription = await this.stripe.subscriptions.create({
+    const stripeSubscription = await this.stripeClient.subscriptions.create({
       customer: stripeCustomerId,
       items: [{ price: industryPlan.stripePriceId }],
       metadata: { tenantId, chatbotId, industryPlanId },
@@ -177,7 +188,7 @@ export class BillingService {
 
     let event: Stripe.Event;
     try {
-      event = this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+      event = this.stripeClient.webhooks.constructEvent(rawBody, signature, webhookSecret);
     } catch (err) {
       this.logger.warn(`Stripe webhook signature verification failed: ${(err as Error).message}`);
       throw new BadRequestException('Invalid webhook signature');
@@ -345,7 +356,7 @@ export class BillingService {
       throw new BadRequestException('No billing account found. Please subscribe first.');
     }
 
-    const session = await this.stripe.billingPortal.sessions.create({
+    const session = await this.stripeClient.billingPortal.sessions.create({
       customer: tenant.stripeCustomerId,
       return_url: `${this.config.get('app.dashboardUrl', 'http://localhost:3000')}/billing`,
     });
