@@ -2,6 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { prisma } from '@chatbot-x/database';
+import { decrypt } from '../../common/utils/crypto';
 
 interface SyncJobData {
   integrationId: string;
@@ -97,7 +98,7 @@ export class IntegrationSyncProcessor extends WorkerHost {
     if (!integration) return;
 
     const credentialsRaw = integration.credentialsEncrypted
-      ? Buffer.from(integration.credentialsEncrypted, 'base64').toString('utf-8')
+      ? decrypt(integration.credentialsEncrypted, process.env.ENCRYPTION_KEY ?? 'dev-encryption-key-32chars!!!!!')
       : '{}';
 
     const credentials = JSON.parse(credentialsRaw) as Record<string, string>;

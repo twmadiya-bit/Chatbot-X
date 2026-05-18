@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { prisma } from '@chatbot-x/database';
+import { encrypt } from '../../common/utils/crypto';
 import type { IntegrationProvider, TenantIntegration, SyncedProduct } from '@chatbot-x/database';
 
 export interface ConnectIntegrationDto {
@@ -55,8 +56,10 @@ export class IntegrationsService {
       throw new NotFoundException(`Integration provider ${providerId} not found`);
     }
 
-    // TODO: Replace base64 encoding with KMS-backed encryption
-    const credentialsEncrypted = Buffer.from(JSON.stringify(credentials)).toString('base64');
+    const credentialsEncrypted = encrypt(
+      JSON.stringify(credentials),
+      process.env.ENCRYPTION_KEY ?? 'dev-encryption-key-32chars!!!!!',
+    );
 
     const integration = await prisma.tenantIntegration.create({
       data: {

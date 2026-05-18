@@ -10,6 +10,7 @@ import { Queue } from 'bullmq';
 import * as crypto from 'crypto';
 import { prisma } from '@chatbot-x/database';
 import { WhatsappConfig } from '@chatbot-x/database';
+import { encrypt, decrypt } from '../../common/utils/crypto';
 
 export interface WhatsappConfigDto {
   phoneNumberId: string;
@@ -143,8 +144,10 @@ export class WhatsappService {
       throw new NotFoundException('Chatbot not found');
     }
 
-    // TODO: replace base64 encoding with proper AES-256-GCM encryption using app.encryptionKey
-    const accessTokenEncrypted = Buffer.from(config.accessToken).toString('base64');
+    const accessTokenEncrypted = encrypt(
+      config.accessToken,
+      process.env.ENCRYPTION_KEY ?? 'dev-encryption-key-32chars!!!!!',
+    );
 
     const existing = await prisma.whatsappConfig.findUnique({ where: { chatbotId } });
 
@@ -190,6 +193,6 @@ export class WhatsappService {
   }
 
   decodeAccessToken(encoded: string): string {
-    return Buffer.from(encoded, 'base64').toString('utf-8');
+    return decrypt(encoded, process.env.ENCRYPTION_KEY ?? 'dev-encryption-key-32chars!!!!!');
   }
 }
