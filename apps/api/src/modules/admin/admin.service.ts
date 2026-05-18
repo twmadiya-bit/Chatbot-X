@@ -74,4 +74,42 @@ export class AdminService {
     }
     return prisma.platformSettings.create({ data: { ...data } });
   }
+
+  async suspendTenant(tenantId: string) {
+    const tenant = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { status: 'SUSPENDED' },
+    });
+    await prisma.auditLog.create({
+      data: { tenantId, action: 'tenant.suspend', resourceType: 'Tenant', resourceId: tenantId },
+    });
+    return tenant;
+  }
+
+  async activateTenant(tenantId: string) {
+    const tenant = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { status: 'ACTIVE' },
+    });
+    await prisma.auditLog.create({
+      data: { tenantId, action: 'tenant.activate', resourceType: 'Tenant', resourceId: tenantId },
+    });
+    return tenant;
+  }
+
+  async listAuditLogs(page = 1, limit = 50, tenantId?: string) {
+    const skip = (page - 1) * limit;
+    const where = tenantId ? { tenantId } : {};
+    const [data, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: { tenant: { select: { id: true, name: true, email: true } } },
+      }),
+      prisma.auditLog.count({ where }),
+    ]);
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
 }

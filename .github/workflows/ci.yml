@@ -84,7 +84,9 @@ jobs:
         run: pnpm db:generate
 
       - name: Run migrations
-        run: pnpm db:push
+        run: pnpm --filter @chatbot-x/database migrate:deploy
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
 
       - name: Run tests
         run: pnpm test
