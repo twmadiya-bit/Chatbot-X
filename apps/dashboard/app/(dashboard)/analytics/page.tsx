@@ -36,7 +36,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/chatbots').then(r => setChatbots((r.data.data as { id: string; name: string }[]) ?? [])).catch(() => {});
+    api.get('/api/v1/chatbots').then(r => setChatbots((r.data.data as { id: string; name: string }[]) ?? [])).catch(() => {});
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -45,10 +45,10 @@ export default function AnalyticsPage() {
       const params = new URLSearchParams({ period });
       if (chatbotId) params.set('chatbotId', chatbotId);
       const [metricsRes, usageRes, sentimentRes, convoRes] = await Promise.all([
-        api.get(`/analytics/dashboard?${params}`),
-        api.get(`/analytics/usage?${params}&groupBy=day`),
-        api.get(`/analytics/sentiment?${params}`),
-        api.get(`/analytics/conversations?${params}&limit=10`),
+        api.get(`/api/v1/analytics/dashboard?${params}`),
+        api.get(`/api/v1/analytics/usage?${params}&groupBy=day`),
+        api.get(`/api/v1/analytics/sentiment?${params}`),
+        api.get(`/api/v1/analytics/conversations?${params}&limit=10`),
       ]);
       setMetrics(metricsRes.data.data as Record<string, unknown>);
       setUsageChart((usageRes.data.data as unknown[]) ?? []);
@@ -126,7 +126,7 @@ export default function AnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={v => String(v).slice(5)} />
                 <YAxis domain={[-1, 1]} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: unknown) => [typeof v === 'number' ? v.toFixed(2) : v, 'Sentiment']} />
+                <Tooltip formatter={(v: unknown) => [typeof v === 'number' ? v.toFixed(2) : String(v), 'Sentiment']} />
                 <Area type="monotone" dataKey="avgSentiment" stroke="#10B981" fill="#D1FAE5" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>

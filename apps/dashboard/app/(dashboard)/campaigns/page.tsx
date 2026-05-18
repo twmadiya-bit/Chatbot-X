@@ -29,12 +29,12 @@ interface Chatbot {
   name: string;
 }
 
-const STATUS_COLOR: Record<CampaignStatus, 'green' | 'yellow' | 'red' | 'gray'> = {
-  ACTIVE: 'green',
+const STATUS_COLOR: Record<CampaignStatus, 'success' | 'warning' | 'danger' | 'gray'> = {
+  ACTIVE: 'success',
   DRAFT: 'gray',
-  PAUSED: 'yellow',
-  COMPLETED: 'green',
-  FAILED: 'red',
+  PAUSED: 'warning',
+  COMPLETED: 'success',
+  FAILED: 'danger',
 };
 
 const TRIGGER_LABELS: Record<TriggerType, string> = {

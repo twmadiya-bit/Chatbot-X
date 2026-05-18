@@ -49,9 +49,9 @@ interface Chatbot {
   name: string;
 }
 
-const STATUS_COLOR: Record<ConvStatus, 'green' | 'yellow' | 'red' | 'gray'> = {
-  OPEN: 'green',
-  ESCALATED: 'red',
+const STATUS_COLOR: Record<ConvStatus, 'success' | 'warning' | 'danger' | 'gray'> = {
+  OPEN: 'success',
+  ESCALATED: 'danger',
   CLOSED: 'gray',
 };
 
@@ -253,7 +253,7 @@ export default function ConversationsPage() {
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="font-medium text-gray-900 text-sm truncate">
-                      {c.endUserName ?? c.endUserPhone ?? (c.endUserId?.slice(0, 14) + '...' ?? 'Anonymous')}
+                      {c.endUserName ?? c.endUserPhone ?? (c.endUserId ? c.endUserId.slice(0, 14) + '...' : 'Anonymous')}
                     </span>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <div className={`w-2 h-2 rounded-full ${sentimentDot(c.sentiment)}`} />

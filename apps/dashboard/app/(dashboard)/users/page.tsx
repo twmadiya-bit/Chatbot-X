@@ -58,9 +58,9 @@ function MemoryDrawer({ chatbotId, endUserId, userName, onClose }: {
     } catch { /* ignore */ } finally { setDeleting(false); }
   };
 
-  const MEMORY_COLOR: Record<string, 'green' | 'yellow' | 'gray'> = {
-    LONG_TERM: 'green',
-    SHORT_TERM: 'yellow',
+  const MEMORY_COLOR: Record<string, 'success' | 'warning' | 'gray'> = {
+    LONG_TERM: 'success',
+    SHORT_TERM: 'warning',
   };
 
   return (

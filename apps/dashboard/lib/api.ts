@@ -66,57 +66,64 @@ export function getTenantId(): string | null {
 }
 
 // API response types
+export interface TenantProfile {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  slug: string;
+  phone: string | null;
+  timezone: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LoginResponse {
-  token: string;
-  tenantId: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-  };
+  accessToken: string;
+  refreshToken: string;
+  tenant: TenantProfile;
 }
 
 export interface Chatbot {
   id: string;
   tenantId: string;
   name: string;
-  industry: string;
+  description?: string;
+  industry?: { id: string; name: string; slug: string };
   status: 'DRAFT' | 'ACTIVE' | 'PAUSED';
   systemPrompt: string;
-  model: string;
-  channels: Array<'WIDGET' | 'WHATSAPP'>;
-  branding: {
+  channel: Array<'WIDGET' | 'WHATSAPP'>;
+  branding?: {
     primaryColor: string;
-    secondaryColor: string;
+    secondaryColor?: string;
     backgroundColor: string;
     textColor: string;
     userBubbleColor: string;
     botBubbleColor: string;
-    fontFamily: string;
+    fontFamily?: string;
     borderRadius: number;
     logoUrl?: string;
     position: 'bottom-right' | 'bottom-left';
-    launcherText: string;
+    launcherText?: string;
     headerTitle?: string;
     welcomeMessage: string;
     placeholderText: string;
-    widgetWidth: number;
-    widgetHeight: number;
+    widgetWidth?: number;
+    widgetHeight?: number;
   };
-  monthlyMessages: number;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateChatbotPayload {
   name: string;
-  industry: string;
   systemPrompt: string;
-  model: string;
-  channels: Array<'WIDGET' | 'WHATSAPP'>;
-  planTier: 'BUDGET' | 'STANDARD' | 'PREMIUM';
-  branding?: Partial<Chatbot['branding']>;
+  channel: Array<'WIDGET' | 'WHATSAPP' | 'INSTAGRAM' | 'MESSENGER' | 'API'>;
+  description?: string;
+  maxTokens?: number;
+  temperature?: number;
+  config?: Record<string, unknown>;
 }
 
 export interface ConversationSummary {
@@ -141,12 +148,12 @@ export interface AnalyticsData {
 }
 
 export interface DashboardMetrics {
-  totalChatbots: number;
-  conversationsThisMonth: number;
-  messagesThisMonth: number;
-  aiCostThisMonth: number;
-  last7DaysConversations: Array<{ date: string; count: number }>;
-  chatbots: Chatbot[];
+  totalConversations: number;
+  totalMessages: number;
+  avgResponseTimeMs: number;
+  resolutionRate: number;
+  escalationRate: number;
+  topIntents: Array<{ intent: string; count: number }>;
 }
 
 export interface BillingInfo {
@@ -176,7 +183,7 @@ export const authApi = {
   login: (email: string, password: string) =>
     api.post<{ success: boolean; data: LoginResponse }>('/api/v1/auth/login', { email, password }),
 
-  register: (data: { name: string; email: string; password: string; businessName: string }) =>
+  register: (data: { name: string; email: string; password: string }) =>
     api.post<{ success: boolean; data: LoginResponse }>('/api/v1/auth/register', data),
 
   logout: () => api.post('/api/v1/auth/logout'),
@@ -189,55 +196,43 @@ export const authApi = {
 };
 
 export const chatbotsApi = {
-  list: (tenantId: string) =>
-    api.get<{ success: boolean; data: Chatbot[] }>(`/api/v1/tenants/${tenantId}/chatbots`),
+  list: () =>
+    api.get<{ success: boolean; data: Chatbot[] }>('/api/v1/chatbots'),
 
-  get: (tenantId: string, chatbotId: string) =>
-    api.get<{ success: boolean; data: Chatbot }>(`/api/v1/tenants/${tenantId}/chatbots/${chatbotId}`),
+  get: (chatbotId: string) =>
+    api.get<{ success: boolean; data: Chatbot }>(`/api/v1/chatbots/${chatbotId}`),
 
-  create: (tenantId: string, payload: CreateChatbotPayload) =>
-    api.post<{ success: boolean; data: Chatbot }>(`/api/v1/tenants/${tenantId}/chatbots`, payload),
+  create: (payload: CreateChatbotPayload) =>
+    api.post<{ success: boolean; data: Chatbot }>('/api/v1/chatbots', payload),
 
-  update: (tenantId: string, chatbotId: string, payload: Partial<Chatbot>) =>
-    api.patch<{ success: boolean; data: Chatbot }>(`/api/v1/tenants/${tenantId}/chatbots/${chatbotId}`, payload),
+  update: (chatbotId: string, payload: Partial<Chatbot>) =>
+    api.patch<{ success: boolean; data: Chatbot }>(`/api/v1/chatbots/${chatbotId}`, payload),
 
-  delete: (tenantId: string, chatbotId: string) =>
-    api.delete(`/api/v1/tenants/${tenantId}/chatbots/${chatbotId}`),
-
-  getEmbedSnippet: (chatbotId: string) => {
-    const cdnUrl = process.env.NEXT_PUBLIC_WIDGET_CDN_URL || 'http://localhost:3002';
-    return `<script>
-  (function(w,d,s,o,f,js,fjs){
-    w['ChatbotX']=o;w[o]=w[o]||function(){(w[o].q=w[o].q||[]).push(arguments)};
-    js=d.createElement(s),fjs=d.getElementsByTagName(s)[0];
-    js.id=o;js.src=f;js.async=1;fjs.parentNode.insertBefore(js,fjs);
-  }(window,document,'script','cbx','${cdnUrl}/widget.js'));
-  cbx('init', { chatbotId: '${chatbotId}' });
-</script>`;
-  },
+  delete: (chatbotId: string) =>
+    api.delete(`/api/v1/chatbots/${chatbotId}`),
 };
 
 export const dashboardApi = {
-  getMetrics: (tenantId: string) =>
-    api.get<{ success: boolean; data: DashboardMetrics }>(`/api/v1/tenants/${tenantId}/dashboard`),
+  getMetrics: () =>
+    api.get<{ success: boolean; data: DashboardMetrics }>('/api/v1/analytics/dashboard?period=30d'),
 };
 
 export const analyticsApi = {
-  getOverview: (tenantId: string, from: string, to: string) =>
-    api.get<{ success: boolean; data: AnalyticsData[] }>(`/api/v1/tenants/${tenantId}/analytics`, {
-      params: { from, to },
+  getOverview: (period: string, chatbotId?: string) =>
+    api.get<{ success: boolean; data: DashboardMetrics }>('/api/v1/analytics/dashboard', {
+      params: { period, chatbotId },
     }),
 
-  getConversations: (tenantId: string, chatbotId?: string, page = 1, limit = 20) =>
-    api.get<{ success: boolean; data: ConversationSummary[]; total: number }>(
-      `/api/v1/tenants/${tenantId}/conversations`,
-      { params: { chatbotId, page, limit } }
+  getConversations: (chatbotId?: string, page = 1, limit = 20, status?: string) =>
+    api.get<{ success: boolean; data: { data: ConversationSummary[]; total: number } }>(
+      '/api/v1/analytics/conversations',
+      { params: { chatbotId, page, limit, status } }
     ),
 
-  getTopQuestions: (tenantId: string, from: string, to: string) =>
+  getTopQuestions: (period: string, chatbotId?: string) =>
     api.get<{ success: boolean; data: Array<{ question: string; count: number }> }>(
-      `/api/v1/tenants/${tenantId}/analytics/top-questions`,
-      { params: { from, to } }
+      '/api/v1/analytics/top-questions',
+      { params: { period, chatbotId } }
     ),
 };
 
@@ -247,11 +242,9 @@ export const billingApi = {
 };
 
 export const settingsApi = {
-  getProfile: (tenantId: string) =>
-    api.get<{ success: boolean; data: { name: string; email: string; timezone: string; notifications: Record<string, boolean> } }>(
-      `/api/v1/tenants/${tenantId}/settings`
-    ),
+  getProfile: () =>
+    api.get<{ success: boolean; data: TenantProfile }>('/api/v1/tenants/me'),
 
-  updateProfile: (tenantId: string, data: { name?: string; email?: string; timezone?: string; notifications?: Record<string, boolean> }) =>
-    api.patch(`/api/v1/tenants/${tenantId}/settings`, data),
+  updateProfile: (data: { name?: string; phone?: string; timezone?: string }) =>
+    api.patch('/api/v1/tenants/me', data),
 };

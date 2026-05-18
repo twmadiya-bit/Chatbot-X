@@ -137,23 +137,8 @@ export default function NewChatbotPage() {
     try {
       const bot = await createChatbot.mutateAsync({
         name: configData.name,
-        industry,
         systemPrompt: configData.systemPrompt,
-        model: 'claude-sonnet-4-6',
-        channels: configData.channels,
-        planTier,
-        branding: {
-          primaryColor: branding.primaryColor,
-          botBubbleColor: branding.botBubbleColor,
-          userBubbleColor: branding.userBubbleColor,
-          backgroundColor: branding.backgroundColor,
-          textColor: branding.textColor,
-          borderRadius: branding.borderRadius,
-          headerTitle: branding.headerTitle,
-          welcomeMessage: branding.welcomeMessage,
-          placeholderText: branding.placeholderText,
-          position: branding.position,
-        },
+        channel: configData.channels,
       });
       router.push(`/chatbots/${bot.id}`);
     } catch {

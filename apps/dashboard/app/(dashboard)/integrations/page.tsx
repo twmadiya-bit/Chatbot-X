@@ -43,13 +43,13 @@ const PROVIDER_ICONS: Record<string, string> = {
   webhook: '🔗',
 };
 
-const TYPE_COLORS: Record<string, 'green' | 'yellow' | 'gray' | 'red'> = {
-  ECOMMERCE: 'green',
-  CALENDAR: 'yellow',
+const TYPE_COLORS: Record<string, 'success' | 'warning' | 'gray' | 'danger'> = {
+  ECOMMERCE: 'success',
+  CALENDAR: 'warning',
   CRM: 'gray',
-  POS: 'green',
+  POS: 'success',
   PAYMENT: 'gray',
-  AUTOMATION: 'yellow',
+  AUTOMATION: 'warning',
   COMMUNICATION: 'gray',
   WEBHOOK: 'gray',
 };
@@ -218,7 +218,7 @@ export default function IntegrationsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge variant={c.isActive ? 'green' : 'gray'}>{c.isActive ? 'Active' : 'Inactive'}</Badge>
+                    <Badge variant={c.isActive ? 'success' : 'gray'}>{c.isActive ? 'Active' : 'Inactive'}</Badge>
                     <Button size="sm" variant="ghost" onClick={() => disconnect(c)}>Disconnect</Button>
                   </div>
                 </div>

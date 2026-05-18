@@ -9,11 +9,11 @@ import { Card } from '../../../../components/ui/Card';
 
 type Tab = 'overview' | 'configuration' | 'branding' | 'knowledge' | 'whatsapp' | 'conversations' | 'settings' | 'test';
 
-const STATUS_COLOR: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
-  ACTIVE: 'green', DRAFT: 'gray', PAUSED: 'yellow', ARCHIVED: 'red',
+const STATUS_COLOR: Record<string, 'success' | 'warning' | 'danger' | 'gray'> = {
+  ACTIVE: 'success', DRAFT: 'gray', PAUSED: 'warning', ARCHIVED: 'danger',
 };
-const DOC_STATUS_COLOR: Record<string, 'green' | 'yellow' | 'gray' | 'red'> = {
-  READY: 'green', PROCESSING: 'yellow', PENDING: 'gray', FAILED: 'red',
+const DOC_STATUS_COLOR: Record<string, 'success' | 'warning' | 'gray' | 'danger'> = {
+  READY: 'success', PROCESSING: 'warning', PENDING: 'gray', FAILED: 'danger',
 };
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -676,10 +676,10 @@ export default function ChatbotDetailPage() {
                 <div key={key} className="flex items-center justify-between mb-3">
                   <label className="text-sm text-gray-700">{label}</label>
                   <div className="flex items-center gap-2">
-                    <input type="color" value={(branding as Record<string, string>)[key]}
+                    <input type="color" value={String((branding as Record<string, unknown>)[key] ?? '')}
                       onChange={e => setBranding(p => ({ ...p, [key]: e.target.value }))}
                       className="w-8 h-8 rounded cursor-pointer border border-gray-300" />
-                    <span className="text-xs font-mono text-gray-500">{(branding as Record<string, string>)[key]}</span>
+                    <span className="text-xs font-mono text-gray-500">{String((branding as Record<string, unknown>)[key] ?? '')}</span>
                   </div>
                 </div>
               ))}

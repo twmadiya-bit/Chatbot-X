@@ -161,7 +161,7 @@ export default function AdminPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-400">{t._count.chatbots} bots</span>
-                    <Badge variant={t.status === 'ACTIVE' ? 'green' : 'gray'}>{t.status}</Badge>
+                    <Badge variant={t.status === 'ACTIVE' ? 'success' : 'gray'}>{t.status}</Badge>
                   </div>
                 </div>
               ))}
@@ -192,7 +192,7 @@ export default function AdminPage() {
                     <td className="py-3 px-3 text-gray-600">{t.email}</td>
                     <td className="py-3 px-3 text-center">{t._count.chatbots}</td>
                     <td className="py-3 px-3">
-                      <Badge variant={t.status === 'ACTIVE' ? 'green' : t.status === 'SUSPENDED' ? 'red' : 'gray'}>{t.status}</Badge>
+                      <Badge variant={t.status === 'ACTIVE' ? 'success' : t.status === 'SUSPENDED' ? 'danger' : 'gray'}>{t.status}</Badge>
                     </td>
                     <td className="py-3 px-3 text-xs text-gray-400">{new Date(t.createdAt).toLocaleDateString()}</td>
                   </tr>
@@ -216,7 +216,7 @@ export default function AdminPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="font-semibold text-gray-900 text-sm">{model.name}</span>
-                        <Badge variant={model.isActive ? 'green' : 'gray'} className="text-xs">{model.isActive ? 'Active' : 'Inactive'}</Badge>
+                        <Badge variant={model.isActive ? 'success' : 'gray'} className="text-xs">{model.isActive ? 'Active' : 'Inactive'}</Badge>
                         <span className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">{model.provider.name}</span>
                       </div>
                       <div className="font-mono text-xs text-gray-400">{model.modelId}</div>

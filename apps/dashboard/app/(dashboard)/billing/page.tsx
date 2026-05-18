@@ -20,11 +20,11 @@ function ProgressBar({ value, max, color = 'indigo' }: { value: number; max: num
   );
 }
 
-const BILLING_STATUS_COLOR: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
-  PAID: 'green', PENDING: 'yellow', INVOICED: 'yellow', VOID: 'red',
+const BILLING_STATUS_COLOR: Record<string, 'success' | 'warning' | 'danger' | 'gray'> = {
+  PAID: 'success', PENDING: 'warning', INVOICED: 'warning', VOID: 'danger',
 };
-const SUB_STATUS_COLOR: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
-  ACTIVE: 'green', TRIALING: 'gray', PAST_DUE: 'red', CANCELED: 'red', PAUSED: 'yellow',
+const SUB_STATUS_COLOR: Record<string, 'success' | 'warning' | 'danger' | 'gray'> = {
+  ACTIVE: 'success', TRIALING: 'gray', PAST_DUE: 'danger', CANCELED: 'danger', PAUSED: 'warning',
 };
 
 type UsageData = {

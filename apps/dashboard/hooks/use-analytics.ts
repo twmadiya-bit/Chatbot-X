@@ -1,59 +1,42 @@
 import { useQuery } from '@tanstack/react-query';
-import { analyticsApi, dashboardApi, getTenantId } from '@/lib/api';
-import { format, subDays } from 'date-fns';
+import { analyticsApi, dashboardApi } from '@/lib/api';
 
 export function useDashboardMetrics() {
-  const tenantId = getTenantId() ?? '';
-
   return useQuery({
-    queryKey: ['dashboard-metrics', tenantId],
+    queryKey: ['dashboard-metrics'],
     queryFn: async () => {
-      const res = await dashboardApi.getMetrics(tenantId);
+      const res = await dashboardApi.getMetrics();
       return res.data.data;
     },
-    enabled: !!tenantId,
   });
 }
 
-export function useAnalytics(from?: string, to?: string) {
-  const tenantId = getTenantId() ?? '';
-  const defaultFrom = format(subDays(new Date(), 30), 'yyyy-MM-dd');
-  const defaultTo = format(new Date(), 'yyyy-MM-dd');
-
+export function useAnalytics(period = '30d', chatbotId?: string) {
   return useQuery({
-    queryKey: ['analytics', tenantId, from ?? defaultFrom, to ?? defaultTo],
+    queryKey: ['analytics', period, chatbotId],
     queryFn: async () => {
-      const res = await analyticsApi.getOverview(tenantId, from ?? defaultFrom, to ?? defaultTo);
+      const res = await analyticsApi.getOverview(period, chatbotId);
       return res.data.data;
     },
-    enabled: !!tenantId,
   });
 }
 
-export function useConversations(chatbotId?: string, page = 1) {
-  const tenantId = getTenantId() ?? '';
-
+export function useConversations(chatbotId?: string, page = 1, status?: string) {
   return useQuery({
-    queryKey: ['conversations', tenantId, chatbotId, page],
+    queryKey: ['conversations', chatbotId, page, status],
     queryFn: async () => {
-      const res = await analyticsApi.getConversations(tenantId, chatbotId, page);
+      const res = await analyticsApi.getConversations(chatbotId, page, 20, status);
       return res.data;
     },
-    enabled: !!tenantId,
   });
 }
 
-export function useTopQuestions(from?: string, to?: string) {
-  const tenantId = getTenantId() ?? '';
-  const defaultFrom = format(subDays(new Date(), 30), 'yyyy-MM-dd');
-  const defaultTo = format(new Date(), 'yyyy-MM-dd');
-
+export function useTopQuestions(period = '30d', chatbotId?: string) {
   return useQuery({
-    queryKey: ['top-questions', tenantId, from ?? defaultFrom, to ?? defaultTo],
+    queryKey: ['top-questions', period, chatbotId],
     queryFn: async () => {
-      const res = await analyticsApi.getTopQuestions(tenantId, from ?? defaultFrom, to ?? defaultTo);
+      const res = await analyticsApi.getTopQuestions(period, chatbotId);
       return res.data.data;
     },
-    enabled: !!tenantId,
   });
 }

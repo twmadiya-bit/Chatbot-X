@@ -34,10 +34,10 @@ export default function LoginPage() {
     setServerError('');
     try {
       const res = await authApi.login(data.email, data.password);
-      const { token, tenantId, user } = res.data.data;
-      setToken(token);
-      localStorage.setItem('tenant_id', tenantId);
-      localStorage.setItem('user_data', JSON.stringify(user));
+      const { accessToken, tenant } = res.data.data;
+      setToken(accessToken);
+      localStorage.setItem('tenant_id', tenant.id);
+      localStorage.setItem('user_data', JSON.stringify(tenant));
       router.replace('/dashboard');
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { error?: string; message?: string } } };
