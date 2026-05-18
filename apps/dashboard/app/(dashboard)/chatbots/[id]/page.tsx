@@ -7,7 +7,7 @@ import { Button } from '../../../../components/ui/Button';
 import { Badge } from '../../../../components/ui/Badge';
 import { Card } from '../../../../components/ui/Card';
 
-type Tab = 'overview' | 'configuration' | 'branding' | 'knowledge' | 'whatsapp' | 'conversations';
+type Tab = 'overview' | 'configuration' | 'branding' | 'knowledge' | 'whatsapp' | 'conversations' | 'settings';
 
 const STATUS_COLOR: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
   ACTIVE: 'green', DRAFT: 'gray', PAUSED: 'yellow', ARCHIVED: 'red',
@@ -198,6 +198,154 @@ function KnowledgeTab({ chatbotId }: { chatbotId: string }) {
   );
 }
 
+interface AiModel { id: string; modelId: string; name: string; provider: { name: string } }
+interface HandoffCfg {
+  isEnabled: boolean; sentimentThreshold: number; confidenceThreshold: number;
+  maxUnansweredTurns: number; triggerKeywords: string[]; escalationMessage: string;
+}
+
+function SettingsTab({ chatbotId, initialHandoff }: { chatbotId: string; initialHandoff?: Partial<HandoffCfg> }) {
+  const [models, setModels] = useState<AiModel[]>([]);
+  const [handoff, setHandoff] = useState<HandoffCfg>({
+    isEnabled: initialHandoff?.isEnabled ?? false,
+    sentimentThreshold: initialHandoff?.sentimentThreshold ?? 0.3,
+    confidenceThreshold: initialHandoff?.confidenceThreshold ?? 0.4,
+    maxUnansweredTurns: initialHandoff?.maxUnansweredTurns ?? 3,
+    triggerKeywords: initialHandoff?.triggerKeywords ?? [],
+    escalationMessage: initialHandoff?.escalationMessage ?? '',
+  });
+  const [keywordInput, setKeywordInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    api.get('/chatbots/models')
+      .then(r => setModels((r.data as AiModel[]) ?? []))
+      .catch(() => {});
+  }, []);
+
+  const addKeyword = () => {
+    const kw = keywordInput.trim().toLowerCase();
+    if (kw && !handoff.triggerKeywords.includes(kw)) {
+      setHandoff(h => ({ ...h, triggerKeywords: [...h.triggerKeywords, kw] }));
+    }
+    setKeywordInput('');
+  };
+
+  const save = async () => {
+    setSaving(true); setSuccess('');
+    try {
+      await api.patch(`/chatbots/${chatbotId}/handoff-config`, handoff);
+      setSuccess('Settings saved.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch { /* ignore */ } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="space-y-5">
+      {success && <div className="p-3 bg-green-50 text-green-700 rounded-lg text-sm">{success}</div>}
+
+      {/* AI Model */}
+      {models.length > 0 && (
+        <Card>
+          <h3 className="font-semibold text-gray-900 mb-3">AI Model</h3>
+          <p className="text-sm text-gray-500 mb-3">The language model used for generating responses.</p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {models.map(m => (
+              <label key={m.id} className="flex items-start gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:border-indigo-300 transition-colors">
+                <input type="radio" name="aiModel" value={m.modelId}
+                  className="mt-0.5 accent-indigo-600"
+                  defaultChecked={false} />
+                <div>
+                  <div className="font-medium text-gray-900 text-sm">{m.name}</div>
+                  <div className="text-xs text-gray-400">{m.provider.name}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Human Handoff */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold text-gray-900">Human Handoff & Escalation</h3>
+            <p className="text-sm text-gray-500 mt-0.5">Automatically escalate conversations to a human agent based on triggers.</p>
+          </div>
+          <button
+            onClick={() => setHandoff(h => ({ ...h, isEnabled: !h.isEnabled }))}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${handoff.isEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
+            role="switch" aria-checked={handoff.isEnabled}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${handoff.isEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+
+        {handoff.isEnabled && (
+          <div className="space-y-5 pt-3 border-t border-gray-100">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sentiment Threshold: <span className="text-indigo-600">{handoff.sentimentThreshold.toFixed(2)}</span>
+              </label>
+              <input type="range" min={-1} max={1} step={0.05} value={handoff.sentimentThreshold}
+                onChange={e => setHandoff(h => ({ ...h, sentimentThreshold: +e.target.value }))}
+                className="w-full accent-indigo-600" />
+              <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Very Negative (-1)</span><span>Neutral (0)</span><span>Positive (+1)</span></div>
+              <p className="text-xs text-gray-500 mt-1">Escalate when conversation sentiment drops below this value.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Max Unanswered Turns: <span className="text-indigo-600">{handoff.maxUnansweredTurns}</span>
+              </label>
+              <input type="range" min={1} max={10} step={1} value={handoff.maxUnansweredTurns}
+                onChange={e => setHandoff(h => ({ ...h, maxUnansweredTurns: +e.target.value }))}
+                className="w-full accent-indigo-600" />
+              <div className="flex justify-between text-xs text-gray-400 mt-1"><span>1</span><span>10</span></div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Trigger Keywords</label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  value={keywordInput}
+                  onChange={e => setKeywordInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(); } }}
+                  placeholder="e.g. speak to human, refund, cancel"
+                  className="flex-1 border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                />
+                <Button size="sm" variant="secondary" onClick={addKeyword}>Add</Button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {handoff.triggerKeywords.map(kw => (
+                  <span key={kw} className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs px-2 py-1 rounded-full">
+                    {kw}
+                    <button onClick={() => setHandoff(h => ({ ...h, triggerKeywords: h.triggerKeywords.filter(k => k !== kw) }))} className="text-indigo-400 hover:text-indigo-700">×</button>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Escalation Message</label>
+              <textarea
+                value={handoff.escalationMessage}
+                onChange={e => setHandoff(h => ({ ...h, escalationMessage: e.target.value }))}
+                rows={2}
+                placeholder="Let me connect you with a human agent who can help."
+                className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 resize-none"
+              />
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Button onClick={save} loading={saving}>Save Settings</Button>
+    </div>
+  );
+}
+
 export default function ChatbotDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -321,6 +469,7 @@ export default function ChatbotDetailPage() {
     { key: 'configuration', label: 'Configuration' },
     { key: 'branding', label: 'Branding' },
     { key: 'knowledge', label: 'Knowledge' },
+    { key: 'settings', label: 'Settings' },
     { key: 'whatsapp', label: 'WhatsApp' },
     { key: 'conversations', label: 'Conversations' },
   ];
@@ -502,6 +651,14 @@ export default function ChatbotDetailPage() {
 
       {/* Tab: Knowledge */}
       {tab === 'knowledge' && <KnowledgeTab chatbotId={id} />}
+
+      {/* Tab: Settings */}
+      {tab === 'settings' && (
+        <SettingsTab
+          chatbotId={id}
+          initialHandoff={chatbot.handoffConfig as Partial<HandoffCfg> | undefined}
+        />
+      )}
 
       {/* Tab: WhatsApp */}
       {tab === 'whatsapp' && (

@@ -138,4 +138,29 @@ export class ChatbotsController {
   ) {
     return this.chatbotsService.saveWhatsappConfig(tenantId, id, dto);
   }
+
+  @Patch(':id/handoff-config')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update handoff / escalation configuration' })
+  updateHandoffConfig(
+    @CurrentTenant() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: {
+      isEnabled: boolean;
+      sentimentThreshold?: number;
+      confidenceThreshold?: number;
+      maxUnansweredTurns?: number;
+      triggerKeywords?: string[];
+      escalationMessage?: string;
+    },
+  ) {
+    return this.chatbotsService.updateHandoffConfig(tenantId, id, dto);
+  }
+
+  @Get('models')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List available AI models' })
+  listAiModels() {
+    return this.chatbotsService.listAiModels();
+  }
 }

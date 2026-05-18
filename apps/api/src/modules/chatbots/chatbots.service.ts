@@ -274,6 +274,49 @@ export class ChatbotsService {
     });
   }
 
+  async updateHandoffConfig(
+    tenantId: string,
+    chatbotId: string,
+    dto: {
+      isEnabled: boolean;
+      sentimentThreshold?: number;
+      confidenceThreshold?: number;
+      maxUnansweredTurns?: number;
+      triggerKeywords?: string[];
+      escalationMessage?: string;
+    },
+  ) {
+    await this.findById(tenantId, chatbotId);
+    return prisma.handoffConfig.upsert({
+      where: { chatbotId },
+      create: {
+        chatbotId,
+        isEnabled: dto.isEnabled,
+        sentimentThreshold: dto.sentimentThreshold ?? 0.3,
+        confidenceThreshold: dto.confidenceThreshold ?? 0.4,
+        maxUnansweredTurns: dto.maxUnansweredTurns ?? 3,
+        triggerKeywords: dto.triggerKeywords ?? [],
+        escalationMessage: dto.escalationMessage ?? null,
+      },
+      update: {
+        isEnabled: dto.isEnabled,
+        ...(dto.sentimentThreshold !== undefined && { sentimentThreshold: dto.sentimentThreshold }),
+        ...(dto.confidenceThreshold !== undefined && { confidenceThreshold: dto.confidenceThreshold }),
+        ...(dto.maxUnansweredTurns !== undefined && { maxUnansweredTurns: dto.maxUnansweredTurns }),
+        ...(dto.triggerKeywords !== undefined && { triggerKeywords: dto.triggerKeywords }),
+        ...(dto.escalationMessage !== undefined && { escalationMessage: dto.escalationMessage }),
+      },
+    });
+  }
+
+  async listAiModels() {
+    return prisma.aiModel.findMany({
+      where: { isActive: true },
+      include: { provider: { select: { name: true, providerKey: true } } },
+      orderBy: [{ provider: { name: 'asc' } }, { name: 'asc' }],
+    });
+  }
+
   async saveWhatsappConfig(
     tenantId: string,
     chatbotId: string,
