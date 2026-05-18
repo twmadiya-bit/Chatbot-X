@@ -127,4 +127,15 @@ export class ChatbotsController {
   ) {
     return this.chatbotsService.regenerateApiKey(tenantId, id);
   }
+
+  @Patch(':id/whatsapp-config')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Save WhatsApp credentials for a chatbot' })
+  saveWhatsappConfig(
+    @CurrentTenant() tenantId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { phoneNumberId: string; wabaId: string; accessToken: string; verifyToken?: string },
+  ) {
+    return this.chatbotsService.saveWhatsappConfig(tenantId, id, dto);
+  }
 }

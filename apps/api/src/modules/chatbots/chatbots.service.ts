@@ -273,4 +273,33 @@ export class ChatbotsService {
       data: { apiKey: newApiKey },
     });
   }
+
+  async saveWhatsappConfig(
+    tenantId: string,
+    chatbotId: string,
+    dto: { phoneNumberId: string; wabaId: string; accessToken: string; verifyToken?: string },
+  ) {
+    await this.findById(tenantId, chatbotId);
+
+    const encrypted = Buffer.from(dto.accessToken).toString('base64');
+
+    return prisma.whatsappConfig.upsert({
+      where: { chatbotId },
+      create: {
+        chatbotId,
+        phoneNumberId: dto.phoneNumberId,
+        wabaId: dto.wabaId,
+        accessTokenEncrypted: encrypted,
+        verifyToken: dto.verifyToken ?? null,
+        isActive: true,
+      },
+      update: {
+        phoneNumberId: dto.phoneNumberId,
+        wabaId: dto.wabaId,
+        accessTokenEncrypted: encrypted,
+        ...(dto.verifyToken !== undefined && { verifyToken: dto.verifyToken }),
+        isActive: true,
+      },
+    });
+  }
 }

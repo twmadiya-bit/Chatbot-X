@@ -1,8 +1,10 @@
 import {
   Controller,
   Get,
+  Patch,
   Param,
   Query,
+  Body,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -92,6 +94,18 @@ export class AnalyticsController {
     @Param('id') conversationId: string,
   ): Promise<ApiResponse<object>> {
     const data = await this.analyticsService.getConversationDetail(tenantId, conversationId);
+    return { success: true, data };
+  }
+
+  @Patch('conversations/:id/status')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update conversation status (close, escalate, reopen)' })
+  async updateConversationStatus(
+    @CurrentTenant() tenantId: string,
+    @Param('id') conversationId: string,
+    @Body() body: { status: 'OPEN' | 'CLOSED' | 'ESCALATED' },
+  ): Promise<ApiResponse<object>> {
+    const data = await this.analyticsService.updateConversationStatus(tenantId, conversationId, body.status);
     return { success: true, data };
   }
 

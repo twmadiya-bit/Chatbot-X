@@ -7,10 +7,13 @@ import { Button } from '../../../../components/ui/Button';
 import { Badge } from '../../../../components/ui/Badge';
 import { Card } from '../../../../components/ui/Card';
 
-type Tab = 'overview' | 'configuration' | 'branding' | 'whatsapp' | 'conversations';
+type Tab = 'overview' | 'configuration' | 'branding' | 'knowledge' | 'whatsapp' | 'conversations';
 
 const STATUS_COLOR: Record<string, 'green' | 'yellow' | 'red' | 'gray'> = {
   ACTIVE: 'green', DRAFT: 'gray', PAUSED: 'yellow', ARCHIVED: 'red',
+};
+const DOC_STATUS_COLOR: Record<string, 'green' | 'yellow' | 'gray' | 'red'> = {
+  READY: 'green', PROCESSING: 'yellow', PENDING: 'gray', FAILED: 'red',
 };
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -26,6 +29,172 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? 'Copied!' : 'Copy'}
     </button>
+  );
+}
+
+interface KnowledgeDoc {
+  id: string;
+  title: string | null;
+  sourceType: string;
+  sourceUrl: string | null;
+  status: string;
+  chunkCount: number;
+  createdAt: string;
+}
+
+function KnowledgeTab({ chatbotId }: { chatbotId: string }) {
+  const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ sourceType: 'TEXT' as 'TEXT' | 'URL' | 'FAQ', title: '', content: '', sourceUrl: '' });
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/chatbots/${chatbotId}/knowledge`);
+      setDocs((res.data as KnowledgeDoc[]) ?? []);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, [chatbotId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const addDoc = async () => {
+    if (form.sourceType !== 'URL' && !form.content.trim()) { setError('Content is required.'); return; }
+    if (form.sourceType === 'URL' && !form.sourceUrl.trim()) { setError('URL is required.'); return; }
+    setAdding(true); setError('');
+    try {
+      await api.post(`/chatbots/${chatbotId}/knowledge`, {
+        sourceType: form.sourceType,
+        title: form.title || undefined,
+        content: form.sourceType !== 'URL' ? form.content : undefined,
+        sourceUrl: form.sourceType === 'URL' ? form.sourceUrl : undefined,
+      });
+      setForm({ sourceType: 'TEXT', title: '', content: '', sourceUrl: '' });
+      setShowForm(false);
+      load();
+    } catch { setError('Failed to add document.'); } finally { setAdding(false); }
+  };
+
+  const deleteDoc = async (docId: string) => {
+    try {
+      await api.delete(`/chatbots/${chatbotId}/knowledge/${docId}`);
+      setDocs(prev => prev.filter(d => d.id !== docId));
+    } catch { /* ignore */ }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-gray-900">Knowledge Base</h3>
+          <p className="text-sm text-gray-500 mt-0.5">Documents are chunked and embedded for RAG retrieval during conversations.</p>
+        </div>
+        <Button size="sm" onClick={() => setShowForm(f => !f)}>{showForm ? 'Cancel' : '+ Add Document'}</Button>
+      </div>
+
+      {showForm && (
+        <Card>
+          <h4 className="font-medium text-gray-900 mb-3">New Document</h4>
+          {error && <div className="p-2 bg-red-50 text-red-700 rounded text-sm mb-3">{error}</div>}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <select
+                value={form.sourceType}
+                onChange={e => setForm(f => ({ ...f, sourceType: e.target.value as 'TEXT' | 'URL' | 'FAQ' }))}
+                className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="TEXT">Plain Text</option>
+                <option value="FAQ">FAQ (Q&A pairs)</option>
+                <option value="URL">URL (website page)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title (optional)</label>
+              <input
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="e.g. Product FAQ, Return Policy"
+                className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            {form.sourceType === 'URL' ? (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                <input
+                  value={form.sourceUrl}
+                  onChange={e => setForm(f => ({ ...f, sourceUrl: e.target.value }))}
+                  placeholder="https://example.com/faq"
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {form.sourceType === 'FAQ' ? 'FAQ Content (Q: ... A: ... format)' : 'Content'}
+                </label>
+                <textarea
+                  value={form.content}
+                  onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+                  rows={6}
+                  placeholder={form.sourceType === 'FAQ'
+                    ? 'Q: What are your business hours?\nA: We are open Monday to Friday, 9am–6pm.\n\nQ: Do you offer refunds?\nA: Yes, within 30 days of purchase.'
+                    : 'Paste your knowledge base content here...'
+                  }
+                  className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 resize-none"
+                />
+                <p className="text-xs text-gray-400 mt-1">{form.content.length} characters</p>
+              </div>
+            )}
+            <Button onClick={addDoc} loading={adding}>Add to Knowledge Base</Button>
+          </div>
+        </Card>
+      )}
+
+      {loading ? (
+        <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
+      ) : docs.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-sm font-medium text-gray-500">No documents yet</p>
+          <p className="text-xs mt-1">Add text, FAQ, or URL documents to power RAG retrieval.</p>
+        </div>
+      ) : (
+        <div className="border border-gray-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                {['Title', 'Type', 'Status', 'Chunks', 'Added', ''].map(h => (
+                  <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {docs.map(doc => (
+                <tr key={doc.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-900">{doc.title ?? '—'}</div>
+                    {doc.sourceUrl && <div className="text-xs text-gray-400 truncate max-w-xs">{doc.sourceUrl}</div>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{doc.sourceType}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={DOC_STATUS_COLOR[doc.status] ?? 'gray'}>{doc.status}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{doc.chunkCount ?? 0}</td>
+                  <td className="px-4 py-3 text-gray-400 text-xs">{new Date(doc.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => deleteDoc(doc.id)} className="text-xs text-red-500 hover:text-red-700">Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -48,6 +217,7 @@ export default function ChatbotDetailPage() {
     welcomeMessage: 'Hello! How can I help you today?', launcherText: 'Chat with us',
     headerTitle: '', borderRadius: 16,
   });
+  const [waConfig, setWaConfig] = useState({ phoneNumberId: '', wabaId: '', accessToken: '', verifyToken: '' });
 
   const fetchChatbot = useCallback(async () => {
     try {
@@ -62,6 +232,12 @@ export default function ChatbotDetailPage() {
       });
       const b = data.branding as Record<string, unknown> | undefined;
       if (b) setBranding(prev => ({ ...prev, ...b }));
+      const wa = data.whatsappConfig as Record<string, unknown> | undefined;
+      if (wa) setWaConfig(prev => ({
+        ...prev,
+        phoneNumberId: (wa.phoneNumberId as string) ?? '',
+        wabaId: (wa.wabaId as string) ?? '',
+      }));
     } catch {
       setError('Failed to load chatbot');
     } finally {
@@ -94,6 +270,18 @@ export default function ChatbotDetailPage() {
       await api.patch(`/chatbots/${id}/branding`, branding);
       setSuccess('Branding saved.');
     } catch { setError('Failed to save branding.'); } finally { setSaving(false); }
+  };
+
+  const saveWhatsapp = async () => {
+    if (!waConfig.phoneNumberId || !waConfig.wabaId || !waConfig.accessToken) {
+      setError('Phone Number ID, WABA ID, and Access Token are required.');
+      return;
+    }
+    setSaving(true); setError(''); setSuccess('');
+    try {
+      await api.patch(`/chatbots/${id}/whatsapp-config`, waConfig);
+      setSuccess('WhatsApp configuration saved.');
+    } catch { setError('Failed to save WhatsApp config.'); } finally { setSaving(false); }
   };
 
   const toggleStatus = async (action: 'activate' | 'pause') => {
@@ -132,6 +320,7 @@ export default function ChatbotDetailPage() {
     { key: 'overview', label: 'Overview' },
     { key: 'configuration', label: 'Configuration' },
     { key: 'branding', label: 'Branding' },
+    { key: 'knowledge', label: 'Knowledge' },
     { key: 'whatsapp', label: 'WhatsApp' },
     { key: 'conversations', label: 'Conversations' },
   ];
@@ -158,11 +347,11 @@ export default function ChatbotDetailPage() {
       {success && <div className="p-3 bg-green-50 text-green-700 rounded-lg text-sm">{success}</div>}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex gap-6">
+      <div className="border-b border-gray-200 overflow-x-auto">
+        <nav className="flex gap-6 min-w-max">
           {tabs.map(t => (
             <button key={t.key} onClick={() => { setTab(t.key); setError(''); setSuccess(''); }}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${tab === t.key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${tab === t.key ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
               {t.label}
             </button>
           ))}
@@ -286,20 +475,17 @@ export default function ChatbotDetailPage() {
             <Card>
               <h3 className="font-semibold text-gray-900 mb-3">Preview</h3>
               <div className="relative bg-gray-100 rounded-lg p-4 h-96 overflow-hidden" style={{ backgroundColor: branding.backgroundColor }}>
-                {/* Bot message */}
                 <div className="flex gap-2 mb-3">
                   <div className="w-7 h-7 rounded-full flex-shrink-0" style={{ backgroundColor: branding.primaryColor }} />
                   <div className="max-w-xs px-3 py-2 rounded-2xl rounded-tl-none text-sm" style={{ backgroundColor: branding.botBubbleColor, color: branding.textColor }}>
                     {branding.welcomeMessage}
                   </div>
                 </div>
-                {/* User message */}
                 <div className="flex justify-end mb-3">
                   <div className="max-w-xs px-3 py-2 rounded-2xl rounded-tr-none text-sm text-white" style={{ backgroundColor: branding.userBubbleColor }}>
                     Hi, I have a question!
                   </div>
                 </div>
-                {/* Launcher button */}
                 <div className="absolute bottom-4 right-4 flex items-center gap-2">
                   <div className="bg-white rounded-full shadow px-3 py-1 text-xs font-medium" style={{ color: branding.primaryColor }}>
                     {branding.launcherText}
@@ -314,6 +500,9 @@ export default function ChatbotDetailPage() {
         </div>
       )}
 
+      {/* Tab: Knowledge */}
+      {tab === 'knowledge' && <KnowledgeTab chatbotId={id} />}
+
       {/* Tab: WhatsApp */}
       {tab === 'whatsapp' && (
         <div className="space-y-4">
@@ -323,8 +512,8 @@ export default function ChatbotDetailPage() {
               {[
                 { step: 1, title: 'Connect Meta Business Account', desc: 'You need a verified Meta Business account with WhatsApp Business API access.', action: <a href="https://business.facebook.com" target="_blank" rel="noreferrer" className="text-sm text-indigo-600 hover:underline">Open Meta Business →</a> },
                 { step: 2, title: 'Get Phone Number ID & WABA ID', desc: 'From Meta Business Dashboard → WhatsApp → API Setup', action: null },
-                { step: 3, title: 'Enter Credentials', desc: null, action: null },
-                { step: 4, title: 'Configure Webhook', desc: `Set this URL in Meta: https://api.chatbot-x.com/api/v1/webhooks/whatsapp/${id}`, action: <CopyButton text={`https://api.chatbot-x.com/api/v1/webhooks/whatsapp/${id}`} /> },
+                { step: 3, title: 'Enter Credentials', desc: 'Fill in the form below and save.', action: null },
+                { step: 4, title: 'Configure Webhook', desc: `Set this URL in Meta Developer console:`, action: <><div className="font-mono text-xs bg-gray-100 rounded px-2 py-1 mt-1 inline-block">{`https://api.chatbot-x.com/api/v1/webhooks/whatsapp/${id}`}</div><CopyButton text={`https://api.chatbot-x.com/api/v1/webhooks/whatsapp/${id}`} /></> },
               ].map(({ step, title, desc, action }) => (
                 <li key={step} className="flex gap-4">
                   <div className="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold">{step}</div>
@@ -340,19 +529,28 @@ export default function ChatbotDetailPage() {
           <Card>
             <h3 className="font-semibold text-gray-900 mb-3">Credentials</h3>
             <div className="space-y-3">
-              {[
-                { label: 'Phone Number ID', key: 'phoneNumberId', placeholder: '1234567890' },
-                { label: 'WhatsApp Business Account ID', key: 'wabaId', placeholder: '1234567890' },
-                { label: 'Access Token', key: 'accessToken', placeholder: 'EAAxxxxxx...', type: 'password' },
-              ].map(({ label, key, placeholder, type }) => (
-                <div key={key}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                  <input type={type ?? 'text'} placeholder={placeholder}
-                    className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
-                </div>
-              ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number ID</label>
+                <input value={waConfig.phoneNumberId} onChange={e => setWaConfig(p => ({ ...p, phoneNumberId: e.target.value }))}
+                  placeholder="1234567890" className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Business Account ID</label>
+                <input value={waConfig.wabaId} onChange={e => setWaConfig(p => ({ ...p, wabaId: e.target.value }))}
+                  placeholder="1234567890" className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Access Token</label>
+                <input type="password" value={waConfig.accessToken} onChange={e => setWaConfig(p => ({ ...p, accessToken: e.target.value }))}
+                  placeholder="EAAxxxxxx..." className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Webhook Verify Token (optional)</label>
+                <input value={waConfig.verifyToken} onChange={e => setWaConfig(p => ({ ...p, verifyToken: e.target.value }))}
+                  placeholder="my-verify-token" className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+              </div>
             </div>
-            <Button className="mt-4">Save WhatsApp Config</Button>
+            <Button className="mt-4" onClick={saveWhatsapp} loading={saving}>Save WhatsApp Config</Button>
           </Card>
         </div>
       )}
@@ -380,9 +578,9 @@ export default function ChatbotDetailPage() {
                         <td className="px-4 py-3 font-mono text-xs text-gray-600">{((c.endUserId as string) ?? '—').slice(0, 12)}...</td>
                         <td className="px-4 py-3"><Badge variant="gray">{c.channel as string}</Badge></td>
                         <td className="px-4 py-3"><Badge variant={STATUS_COLOR[c.status as string] ?? 'gray'}>{c.status as string}</Badge></td>
-                        <td className="px-4 py-3 text-gray-700">{c._count ? (c._count as Record<string, number>).messages : '—'}</td>
+                        <td className="px-4 py-3 text-gray-700">{c.messageCount as number ?? '—'}</td>
                         <td className="px-4 py-3"><div className={`w-3 h-3 rounded-full ${sentColor}`} title={String(sentiment ?? 'N/A')} /></td>
-                        <td className="px-4 py-3 text-gray-500">{new Date(c.createdAt as string).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-gray-500">{new Date(c.startedAt as string).toLocaleDateString()}</td>
                       </tr>
                     );
                   })}

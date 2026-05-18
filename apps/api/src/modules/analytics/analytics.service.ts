@@ -388,6 +388,22 @@ export class AnalyticsService {
       .map(([intent, count]) => ({ intent, count }));
   }
 
+  async updateConversationStatus(
+    tenantId: string,
+    conversationId: string,
+    status: 'OPEN' | 'CLOSED' | 'ESCALATED',
+  ): Promise<object> {
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, chatbot: { tenantId } },
+    });
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    return prisma.conversation.update({
+      where: { id: conversationId },
+      data: { status: status as ConversationStatus },
+    });
+  }
+
   async getRevenueAttribution(
     tenantId: string,
     chatbotId?: string,

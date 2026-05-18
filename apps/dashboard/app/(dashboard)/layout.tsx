@@ -24,6 +24,7 @@ import { getInitials } from '@/lib/utils';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/chatbots', label: 'Chatbots', icon: Bot },
+  { href: '/conversations', label: 'Conversations', icon: MessageSquare },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/integrations', label: 'Integrations', icon: Plug },
   { href: '/campaigns', label: 'Campaigns', icon: Megaphone },
