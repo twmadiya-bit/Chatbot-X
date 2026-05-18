@@ -41,7 +41,7 @@ echo ""
 info "Checking system dependencies..."
 
 # Node.js 22
-if ! node --version 2>/dev/null | grep -q "v2[0-9]"; then
+if ! node --version 2>/dev/null | grep -q "v2[2-9]"; then
   info "Installing Node.js 22..."
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
   apt-get install -y nodejs >/dev/null 2>&1
@@ -173,8 +173,14 @@ ok "Secrets saved to $APP_DIR/secrets.txt"
 # ── 8. Install, migrate, build ────────────────────────────────────────────────
 cd "$APP_DIR/app"
 
+# Prisma CLI looks for .env in packages/database/, not apps/api/
+cp "$APP_DIR/app/apps/api/.env" "$APP_DIR/app/packages/database/.env"
+
 info "Installing Node dependencies..."
 pnpm install --frozen-lockfile
+
+info "Approving build scripts (prisma, bcrypt, sharp, esbuild)..."
+pnpm approve-builds --yes 2>/dev/null || true
 
 info "Generating Prisma client..."
 pnpm db:generate
